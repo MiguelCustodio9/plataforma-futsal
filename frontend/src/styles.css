@@ -49,7 +49,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .welcome-panel { min-height: 260px; position: relative; overflow: hidden; display: flex; align-items: center; padding: 38px 42px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(115deg, #103d2a 0%, #0d3021 58%, #164b33 100%); }
 .welcome-copy { position: relative; z-index: 1; max-width: 590px; }
 .welcome-copy h2 { max-width: 570px; margin: 13px 0 12px; font: 600 clamp(25px, 3vw, 36px)/1.16 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
-.welcome-copy p { max-width: 520px; margin: 0; color: #a9b9cc; font-size: 13px; line-height: 1.8; }
+.welcome-copy p { max-width: 520px; margin: 0; color: #c3d9cb; font-size: 13px; line-height: 1.8; }
 .court-art { position: absolute; right: 7%; top: 50%; width: 290px; height: 190px; transform: translateY(-50%) rotate(-8deg); border: 1px solid rgba(224,255,236,.38); border-radius: 9px; opacity: .65; }
 .center-line { position: absolute; left: 50%; height: 100%; border-left: 1px solid rgba(224,255,236,.38); }
 .court-circle { position: absolute; width: 72px; height: 72px; border: 1px solid rgba(224,255,236,.38); border-radius: 50%; left: calc(50% - 36px); top: calc(50% - 36px); }
@@ -63,8 +63,8 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .module-number { color: var(--accent); font: 600 11px "Space Grotesk", sans-serif; }
 .module-card h3 { margin: 13px 0 5px; font: 600 14px "Space Grotesk", sans-serif; }
 .module-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.module-state { display: inline-block; margin-top: 13px; color: #8ea1b8; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
-.page-footer { display: flex; justify-content: space-between; gap: 15px; margin-top: 34px; padding-top: 17px; border-top: 1px solid var(--line); color: #73869e; font-size: 10px; }
+.module-state { display: inline-block; margin-top: 13px; color: #91ad9b; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+.page-footer { display: flex; justify-content: space-between; gap: 15px; margin-top: 34px; padding-top: 17px; border-top: 1px solid var(--line); color: #91ad9b; font-size: 10px; }
 
 @media (max-width: 1100px) {
   .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
