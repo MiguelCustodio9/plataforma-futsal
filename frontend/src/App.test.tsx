@@ -24,7 +24,11 @@ describe("plataforma de futsal", () => {
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
     expect(screen.getByRole("heading", { name: "Gestão de Staff" })).toBeInTheDocument();
     expect(screen.getByText("Exemplo de treinador")).toBeInTheDocument();
-    expect(screen.getByText("Convite pendente")).toBeInTheDocument();
+    expect(
+      screen.getByText("Convite pendente", {
+      selector: "span.status-pill",
+    })
+).toBeInTheDocument();
   });
 
   it("permite adicionar um elemento de Staff em modo de demonstração", () => {
