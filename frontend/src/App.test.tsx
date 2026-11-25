@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import App from "./App";
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("estrutura inicial da plataforma", () => {
   it("apresenta o centro de controlo e as áreas planeadas", () => {
