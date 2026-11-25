@@ -7,7 +7,7 @@ describe("estrutura inicial da plataforma", () => {
     render(<App />);
     expect(screen.getByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Áreas do projeto" })).toBeInTheDocument();
-    expect(screen.getByText("Biblioteca de vídeos")).toBeInTheDocument();
+    expect(screen.getAllByText("Biblioteca de vídeos")).toHaveLength(2);
   });
 
   it("identifica que a aplicação ainda não tem sessão iniciada", () => {
