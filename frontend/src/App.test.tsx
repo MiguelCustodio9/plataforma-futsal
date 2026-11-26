@@ -138,7 +138,7 @@ describe("plataforma de futsal", () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
-    expect(await screen.findByRole("heading", { name: "Gestão de acessos" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Gestão de acessos" })).toBeInTheDocument();
     expect(await screen.findByText("Não foram encontradas contas.")).toBeInTheDocument();
     expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", { body: { action: "list" } });
   });
