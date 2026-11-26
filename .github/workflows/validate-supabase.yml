@@ -31,5 +31,10 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Verificar Edge Function
-        run: deno check supabase/functions/bootstrap-first-admin/index.ts
+      - name: Verificar Edge Functions
+        run: |
+          deno check supabase/functions/bootstrap-first-admin/index.ts
+          deno check supabase/functions/invite-staff/index.ts
+          deno check supabase/functions/accept-staff-invite/index.ts
+          deno check supabase/functions/manage-staff-account/index.ts
+          deno check supabase/functions/manage-platform-access/index.ts
