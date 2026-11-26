@@ -66,7 +66,7 @@ function mapStaffRow(row: StaffDbRow): StaffMember {
     roles: (row.staff_member_roles ?? []).map((role) => role.role_name),
     status: statusFromDatabase[row.status],
     createdAt: row.created_at.slice(0, 10),
-    accountDeletedAt: row.account_deleted_at,
+    accountDeletedAt: row.account_deleted_at ?? null,
   };
 }
 
@@ -118,7 +118,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           .from("staff_members")
           .select("id, profile_id, name, full_name, email, birth_date, status, created_at, staff_member_roles(role_name)")
           .order("created_at", { ascending: false });
-        data = legacyResult.data;
+        data = legacyResult.data as unknown as typeof data;
         error = legacyResult.error;
       }
       if (error) throw error;
