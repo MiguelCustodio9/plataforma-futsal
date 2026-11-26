@@ -20,27 +20,16 @@ export const supabase = createClient(
   }
 )
 
-
-
 export async function testSupabaseConnection() {
   try {
-    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-      method: 'GET',
-      headers: {
-        apikey: supabasePublishableKey,
-      },
-    })
+    const { error } = await supabase.auth.getSession()
 
-    if (!response.ok) {
-      console.error(
-        'Erro na ligação Supabase:',
-        response.status,
-        await response.text()
-      )
+    if (error) {
+      console.error('Erro na ligação Supabase:', error.message)
       return false
     }
 
-    console.log('Ligação real ao Supabase confirmada!')
+    console.log('Comunicação com o serviço de autenticação Supabase confirmada!')
     return true
   } catch (error) {
     console.error('Falha na comunicação com Supabase:', error)
