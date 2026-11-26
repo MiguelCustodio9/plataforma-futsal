@@ -42,11 +42,23 @@ Deno.serve(async (request) => {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: manager } = await admin.from("profiles")
+  const { data: manager, error: managerError } = await admin.from("profiles")
     .select("role, status").eq("id", authData.user.id).maybeSingle();
-  if (!manager || manager.status !== "ativo" ||
-      !["administrador_principal", "treinador_principal"].includes(manager.role)) {
-    return respond(403, { error: "Não tens permissões para enviar convites." });
+  if (managerError) {
+    console.error("Erro ao consultar perfil do gestor:", managerError.message);
+    return respond(500, { error: "Não foi possível validar o perfil da conta. Tenta novamente." });
+  }
+  if (!manager) {
+    console.error("Perfil do utilizador autenticado não encontrado.");
+    return respond(403, { error: "A conta autenticada não tem um perfil associado na plataforma." });
+  }
+  if (manager.status !== "ativo") {
+    console.error("Conta gestora não está ativa:", manager.status);
+    return respond(403, { error: "A conta tem de estar ativa para enviar convites." });
+  }
+  if (!["administrador_principal", "treinador_principal"].includes(manager.role)) {
+    console.error("Papel sem permissões para gerir Staff:", manager.role);
+    return respond(403, { error: "O papel desta conta não permite gerir o Staff." });
   }
 
   let payload: { staffMemberId?: unknown };
