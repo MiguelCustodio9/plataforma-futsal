@@ -356,7 +356,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
               </div>
               <div className="court-art" aria-hidden="true"><div className="court-line center-line" /><div className="court-circle" /><div className="court-box court-box-left" /><div className="court-box court-box-right" /></div>
             </section>
-            <div className="section-heading"><div><span className="eyebrow">ACESSO RÁPIDO</span><h2>Gestão da plataforma</h2></div><span className="phase-tag">ADMINISTRADOR PRINCIPAL</span></div>
+            <div className="section-heading"><div><span className="eyebrow">ACESSO RÁPIDO</span><h2>Áreas do projeto</h2></div><span className="phase-tag">ADMINISTRADOR PRINCIPAL</span></div>
             <section className="module-grid" aria-label="Acessos de administração">
               {[
                 { name: "Plantel", description: "Registo e gestão das jogadoras." },
