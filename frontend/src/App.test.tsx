@@ -7,8 +7,11 @@ const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffU
   mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
   mockRoleInsert: vi.fn().mockResolvedValue({ error: null }),
   mockStaffUpdate: vi.fn().mockResolvedValue({ error: null }),
-  mockFunctionInvoke: vi.fn(async (name: string) => {
+  mockFunctionInvoke: vi.fn(async (name: string, options?: { body?: { action?: string; status?: string } }) => {
     if (name === "accept-staff-invite") mockProfile.status = "ativo";
+    if (name === "manage-platform-access" && options?.body?.action === "list") {
+      return { data: { accounts: [] }, error: null };
+    }
     return { data: { message: "Operação concluída." }, error: null };
   }),
 }));
@@ -80,8 +83,11 @@ afterEach(() => {
   mockStaffInsert.mockResolvedValue({ data: { id: "staff-123" }, error: null });
   mockRoleInsert.mockResolvedValue({ error: null });
   mockStaffUpdate.mockResolvedValue({ error: null });
-  mockFunctionInvoke.mockImplementation(async (name: string) => {
+  mockFunctionInvoke.mockImplementation(async (name: string, options?: { body?: { action?: string; status?: string } }) => {
     if (name === "accept-staff-invite") mockProfile.status = "ativo";
+    if (name === "manage-platform-access" && options?.body?.action === "list") {
+      return { data: { accounts: [] }, error: null };
+    }
     return { data: { message: "Operação concluída." }, error: null };
   });
 });
@@ -124,6 +130,15 @@ describe("plataforma de futsal", () => {
     }
     expect(navigation.queryByRole("button", { name: /Perfil da jogadora/ })).not.toBeInTheDocument();
     expect(navigation.queryByRole("button", { name: /Gestão de acessos/ })).not.toBeInTheDocument();
+  });
+
+  it("abre a Gestão de acessos e carrega a lista global através da função protegida", async () => {
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
+    expect(await screen.findByRole("heading", { name: "Gestão de acessos" })).toBeInTheDocument();
+    expect(await screen.findByText("Não foram encontradas contas.")).toBeInTheDocument();
+    expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", { body: { action: "list" } });
   });
 
   it("apresenta a opção para terminar uma sessão autenticada", async () => {
