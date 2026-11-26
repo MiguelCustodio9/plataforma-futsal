@@ -85,6 +85,153 @@ const roleLabels: Record<AppRole, string> = {
   jogadora: "Jogadora",
 };
 
+type PlatformAccount = {
+  id: string;
+  display_name: string;
+  email: string;
+  role: AppRole;
+  status: "ativo" | "convite_pendente" | "suspenso" | "arquivado";
+  created_at: string;
+  last_sign_in_at: string;
+};
+
+function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
+  const [accounts, setAccounts] = useState<PlatformAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("Todas");
+  const [statusFilter, setStatusFilter] = useState("Todos");
+  const [selectedAccount, setSelectedAccount] = useState<PlatformAccount | null>(null);
+  const [nextStatus, setNextStatus] = useState<"ativo" | "suspenso" | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadAccounts = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
+        body: { action: "list" },
+      });
+      if (invokeError) throw invokeError;
+      if (!data || !Array.isArray(data.accounts)) throw new Error("Resposta inválida do serviço.");
+      setAccounts(data.accounts as PlatformAccount[]);
+    } catch (loadError) {
+      console.error("Erro ao carregar gestão de acessos:", loadError);
+      setError("Não foi possível carregar as contas. Confirma se a função de gestão de acessos está publicada e tenta novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadAccounts(); }, [loadAccounts]);
+
+  const filteredAccounts = useMemo(() => accounts.filter((account) => {
+    const search = [account.display_name, account.email, roleLabels[account.role]].join(" ").toLocaleLowerCase("pt-PT");
+    return search.includes(query.toLocaleLowerCase("pt-PT")) &&
+      (roleFilter === "Todas" || account.role === roleFilter) &&
+      (statusFilter === "Todos" || account.status === statusFilter);
+  }), [accounts, query, roleFilter, statusFilter]);
+
+  const counts = useMemo(() => ({
+    total: accounts.length,
+    active: accounts.filter((account) => account.status === "ativo").length,
+    pending: accounts.filter((account) => account.status === "convite_pendente").length,
+    suspended: accounts.filter((account) => account.status === "suspenso").length,
+  }), [accounts]);
+
+  const updateAccountStatus = async () => {
+    if (!selectedAccount || !nextStatus) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
+        body: { action: "set_status", targetProfileId: selectedAccount.id, status: nextStatus },
+      });
+      if (invokeError) {
+        if (invokeError.context instanceof Response) {
+          try {
+            const payload = await invokeError.context.clone().json() as { error?: string };
+            if (payload.error) throw new Error(payload.error);
+          } catch (readError) {
+            if (readError instanceof Error && readError.message !== "Unexpected end of JSON input") throw readError;
+          }
+        }
+        throw invokeError;
+      }
+      setNotice(typeof data?.message === "string" ? data.message : "Estado da conta atualizado.");
+      setSelectedAccount(null);
+      setNextStatus(null);
+      await loadAccounts();
+    } catch (updateError) {
+      console.error("Erro ao alterar estado da conta:", updateError);
+      setError(updateError instanceof Error && updateError.message !== "Edge Function returned a non-2xx status code"
+        ? updateError.message
+        : "Não foi possível alterar o estado da conta. Tenta novamente.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const statusLabel = (status: PlatformAccount["status"]) => ({
+    ativo: "Ativa",
+    convite_pendente: "Convite pendente",
+    suspenso: "Suspensa",
+    arquivado: "Arquivada",
+  })[status];
+
+  return (
+    <div className="content staff-content">
+      <div className="staff-heading">
+        <div><span className="eyebrow">ADMINISTRAÇÃO PRINCIPAL · CONTAS</span><h2>Gestão de acessos</h2><p>Consulta as contas de todas as áreas e controla o acesso à plataforma.</p></div>
+        <button className="secondary-button" onClick={() => void loadAccounts()} disabled={loading}>↻ Atualizar</button>
+      </div>
+      <section className="staff-stats" aria-label="Resumo das contas">
+        <article><span>Total de contas</span><strong>{counts.total}</strong></article>
+        <article><span>Ativas</span><strong>{counts.active}</strong></article>
+        <article><span>Convites pendentes</span><strong>{counts.pending}</strong></article>
+        <article><span>Suspensas</span><strong>{counts.suspended}</strong></article>
+      </section>
+      <section className="staff-toolbar" aria-label="Pesquisa e filtros de contas">
+        <label className="search-field"><span>Pesquisar</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome ou email..." /></label>
+        <label><span>Perfil</span><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option value="Todas">Todos os perfis</option><option value="administrador_principal">Administrador Principal</option><option value="treinador_principal">Treinador Principal</option><option value="staff">Staff</option><option value="jogadora">Jogadora</option></select></label>
+        <label><span>Estado</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="Todos">Todos os estados</option><option value="ativo">Ativa</option><option value="convite_pendente">Convite pendente</option><option value="suspenso">Suspensa</option><option value="arquivado">Arquivada</option></select></label>
+      </section>
+      <section className="staff-table-wrap" aria-label="Contas da plataforma">
+        <div className="table-title"><div><h3>Contas registadas</h3><span>{filteredAccounts.length} resultado(s)</span></div></div>
+        {loading ? <div className="empty-state"><strong>A carregar contas…</strong></div> : error && accounts.length === 0 ? <div className="empty-state"><strong>{error}</strong><button className="secondary-button" onClick={() => void loadAccounts()}>Tentar novamente</button></div> : filteredAccounts.length === 0 ? <div className="empty-state"><strong>Não foram encontradas contas.</strong><span>Altera os filtros ou a pesquisa.</span></div> : (
+          <div className="staff-list">
+            {filteredAccounts.map((account) => (
+              <article className="staff-row" key={account.id}>
+                <div className="staff-person"><span className="staff-avatar">{account.display_name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{account.display_name}{account.id === currentProfileId ? " (tu)" : ""}</strong><span>{account.email || "Email indisponível"}</span></div></div>
+                <div className="staff-roles"><span>{roleLabels[account.role]}</span></div>
+                <div><span className={`status-pill status-${statusLabel(account.status).toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{statusLabel(account.status)}</span></div>
+                <div className="staff-actions">
+                  <span className="invite-sent-label"><span className="invite-sent-copy"><strong>Último acesso</strong><small>{account.last_sign_in_at ? new Date(account.last_sign_in_at).toLocaleString("pt-PT") : "Ainda sem sessão"}</small></span></span>
+                  {account.id !== currentProfileId && account.status === "ativo" && <button onClick={() => { setSelectedAccount(account); setNextStatus("suspenso"); }}>Suspender</button>}
+                  {account.id !== currentProfileId && account.status === "suspenso" && <button onClick={() => { setSelectedAccount(account); setNextStatus("ativo"); }}>Reativar</button>}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+      {error && !(loading || accounts.length === 0) && <p className="form-error" role="alert">{error}</p>}
+      {notice && <p className="demo-notice" role="status">{notice}</p>}
+      <p className="demo-notice">A alteração de estado bloqueia ou repõe o início de sessão. Não altera o papel nem elimina a ficha desportiva ou o histórico da pessoa. A tua própria conta não pode ser suspensa aqui.</p>
+      {selectedAccount && nextStatus && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) { setSelectedAccount(null); setNextStatus(null); } }}>
+        <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="access-action-title">
+          <div className="modal-heading"><div><span className="eyebrow">CONFIRMAÇÃO DE SEGURANÇA</span><h2 id="access-action-title">{nextStatus === "suspenso" ? "Suspender conta" : "Reativar conta"}</h2></div><button className="icon-button" onClick={() => { setSelectedAccount(null); setNextStatus(null); }} aria-label="Fechar" disabled={busy}>×</button></div>
+          <p>{nextStatus === "suspenso" ? <>A conta de <strong>{selectedAccount.display_name}</strong> ({selectedAccount.email}) ficará impedida de iniciar sessão. A ficha, os dados e o histórico serão preservados.</> : <>A conta de <strong>{selectedAccount.display_name}</strong> ({selectedAccount.email}) voltará a poder iniciar sessão, mantendo o perfil e os dados existentes.</>}</p>
+          <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => { setSelectedAccount(null); setNextStatus(null); }} disabled={busy}>Cancelar</button><button type="button" className="primary-button" onClick={() => void updateAccountStatus()} disabled={busy}>{busy ? "A processar…" : nextStatus === "suspenso" ? "Confirmar suspensão" : "Confirmar reativação"}</button></div>
+        </section>
+      </div>}
+    </div>
+  );
+}
+
 function Dashboard({ profile }: { profile: UserProfile }) {
   const canManageStaff = profile.role === "treinador_principal";
   const visibleModules = profile.role === "administrador_principal"
@@ -370,6 +517,8 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             </section>
             <footer className="page-footer"><span>Plataforma Futsal</span><span>Área exclusiva do Administrador Principal.</span></footer>
           </div>
+        ) : profile.role === "administrador_principal" && activeArea === "Gestão de acessos" ? (
+          <AccessManagement />
         ) : profile.role === "administrador_principal" && administratorModules.includes(activeArea) ? (
           <div className="content">
             <section className="welcome-panel">
