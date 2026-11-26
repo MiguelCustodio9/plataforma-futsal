@@ -2,6 +2,9 @@
 -- Aplicar manualmente no SQL Editor do Supabase depois da migration de auditoria inicial.
 
 alter table public.platform_access_audit
+  alter column previous_status drop not null;
+
+alter table public.platform_access_audit
   drop constraint if exists platform_access_audit_event_type_check;
 
 alter table public.platform_access_audit
