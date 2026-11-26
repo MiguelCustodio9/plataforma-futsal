@@ -182,7 +182,7 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     event.preventDefault();
     const name = trainerName.trim();
     const email = trainerEmail.trim().toLocaleLowerCase("pt-PT");
-    if (!name || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Indica um nome e um endereço de email válido.");
       return;
     }
