@@ -28,8 +28,17 @@ const initialStaff: StaffMember[] = [
   { id: 2, name: "Exemplo de adjunto", fullName: "Exemplo de adjunto", email: "adjunto@exemplo.pt", birthDate: "", roles: ["Adjunto", "Treinador de GR"], status: "Convite pendente", createdAt: "2026-11-25" },
 ];
 
-function Dashboard() {
+type AppRole = "administrador_principal" | "treinador_principal" | "staff" | "jogadora";
+type UserProfile = { displayName: string; role: AppRole; status: string };
 
+const roleLabels: Record<AppRole, string> = {
+  administrador_principal: "Administrador Principal",
+  treinador_principal: "Treinador Principal",
+  staff: "Staff",
+  jogadora: "Jogadora",
+};
+
+function Dashboard({ profile }: { profile: UserProfile }) {
   useEffect(() => {
     void testSupabaseConnection();
   }, []);
@@ -139,7 +148,7 @@ function Dashboard() {
       <section className="main-area" id="inicio">
         <header className="topbar">
           <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Staff" ? "Gestão de Staff" : "Centro de controlo"}</h1></div>
-          <div className="topbar-meta"><span className="environment">SESSÃO AUTENTICADA</span><button className="sign-out-button" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button></div>
+          <div className="topbar-meta"><div className="account-identity"><strong>{profile.displayName}</strong><span>{roleLabels[profile.role]}</span></div><span className="environment">SESSÃO AUTENTICADA</span><button className="sign-out-button" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button></div>
         </header>
 
         {activeArea === "Staff" ? (
@@ -213,6 +222,9 @@ function Dashboard() {
 function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -250,6 +262,69 @@ function AuthGate({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!session?.user.id) {
+      setProfile(null);
+      setProfileLoading(false);
+      setProfileError("");
+      return;
+    }
+
+    setProfileLoading(true);
+    setProfileError("");
+
+    void supabase
+      .from("profiles")
+      .select("display_name, role, status")
+      .eq("id", session.user.id)
+      .single()
+      .then(({ data, error: queryError }) => {
+        if (!mounted) return;
+
+        if (queryError || !data) {
+          console.error("Não foi possível carregar o perfil:", queryError?.message);
+          setProfile(null);
+          setProfileError("Não foi possível carregar o perfil desta conta. Contacta o administrador.");
+          return;
+        }
+
+        const allowedRoles: AppRole[] = [
+          "administrador_principal",
+          "treinador_principal",
+          "staff",
+          "jogadora",
+        ];
+
+        if (!allowedRoles.includes(data.role as AppRole)) {
+          setProfile(null);
+          setProfileError("A conta tem um papel inválido. Contacta o administrador.");
+          return;
+        }
+
+        setProfile({
+          displayName: data.display_name,
+          role: data.role as AppRole,
+          status: data.status,
+        });
+      })
+      .catch((profileQueryError: unknown) => {
+        console.error("Erro inesperado ao carregar o perfil:", profileQueryError);
+        if (mounted) {
+          setProfile(null);
+          setProfileError("Ocorreu um erro ao carregar o perfil. Tenta novamente.");
+        }
+      })
+      .finally(() => {
+        if (mounted) setProfileLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [session?.user.id]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -354,7 +429,56 @@ function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (session) return <>{children}</>;
+  if (session && profileLoading) {
+    return <main className="auth-loading"><span className="auth-spinner" /><p>A carregar o perfil e as permissões…</p></main>;
+  }
+
+  if (session && profileError) {
+    return (
+      <main className="auth-page">
+        <section className="auth-panel">
+          <div className="auth-form-wrap">
+            <span className="eyebrow">VALIDAÇÃO DE CONTA</span>
+            <h2>Não foi possível validar o acesso</h2>
+            <p className="auth-feedback auth-error" role="alert">{profileError}</p>
+            <button className="auth-submit" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (session && profile && profile.status !== "ativo") {
+    return (
+      <main className="auth-page">
+        <section className="auth-panel">
+          <div className="auth-form-wrap">
+            <span className="eyebrow">CONTA NÃO ATIVA</span>
+            <h2>Acesso indisponível</h2>
+            <p className="auth-feedback auth-error" role="alert">O estado desta conta é «{profile.status}». Contacta o administrador da plataforma.</p>
+            <button className="auth-submit" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (session && profile && profile.role !== "administrador_principal") {
+    return (
+      <main className="auth-page">
+        <section className="auth-panel">
+          <div className="auth-form-wrap">
+            <span className="eyebrow">ACESSO RESTRITO</span>
+            <h2>Sem permissões para este painel</h2>
+            <p className="auth-intro">A conta está autenticada como {roleLabels[profile.role]}, mas este painel está reservado ao Administrador Principal.</p>
+            <button className="auth-submit" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (session && profile) return <Dashboard profile={profile} />;
 
   return (
     <main className="auth-page">
@@ -385,5 +509,5 @@ function AuthGate({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  return <AuthGate><Dashboard /></AuthGate>;
+  return <AuthGate><></></AuthGate>;
 }
