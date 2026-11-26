@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { testSupabaseConnection } from "./lib/supabase";
 
 const modules = [
   "Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos",
@@ -28,6 +29,12 @@ const initialStaff: StaffMember[] = [
 ];
 
 export default function App() {
+
+  useEffect(() => {
+    void testSupabaseConnection();
+  }, []);
+
+
   const [activeArea, setActiveArea] = useState("Painel inicial");
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
   const [query, setQuery] = useState("");
