@@ -8,7 +8,7 @@ Os ficheiros de migration e Edge Function estão preparados, mas **não foram ap
 
 1. Confirmar no Dashboard que este é o projeto Supabase correto.
 2. Rever a migration `supabase/migrations/20261126090000_profiles_roles_and_initial_admin.sql`.
-3. Implementar e testar no frontend o ecrã de definição de palavra-passe após o convite. O ecrã atual ainda não permite definir uma nova palavra-passe depois de aceitar o convite.
+3. Confirmar que o fluxo de convite e definição de palavra-passe continua coberto pelos testes do frontend e que o workflow de validação está verde.
 4. Confirmar o URL permitido de redirecionamento de autenticação no Supabase.
 5. Instalar e autenticar a Supabase CLI localmente. Não guardar o access token da CLI no repositório.
 
@@ -39,7 +39,7 @@ A função exige o segredo temporário e a RPC serializa as chamadas concorrente
 
 ## Limites conhecidos
 
-- A função envia um convite por email, mas a interface de definição de palavra-passe ainda tem de ser implementada antes da primeira utilização.
+- O ecrã de definição de palavra-passe está implementado no frontend e contempla convites e recuperação. A validação real do fluxo depende ainda de um convite de teste, depois da configuração dos redirecionamentos e da publicação controlada da função.
 - As políticas RLS atuais permitem ao utilizador ler o próprio perfil e ao Administrador Principal ler os perfis. Não permitem ao cliente inserir perfis nem alterar papéis/estados.
 - O acesso transversal de Treinador Principal e Staff deve ser definido por módulo antes de acrescentar políticas adicionais.
 - Esta documentação não substitui a revisão da migration nem a validação no projeto Supabase real.
