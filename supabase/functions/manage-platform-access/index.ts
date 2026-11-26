@@ -126,6 +126,91 @@ Deno.serve(async (request) => {
     return respond(200, { message: "Convite de Treinador Principal enviado com sucesso." });
   }
 
+  if (payload.action === "resend_trainer_invite") {
+    if (!isUuid(payload.targetProfileId)) return respond(400, { error: "Conta de Treinador Principal inválida." });
+    const targetProfileId = payload.targetProfileId;
+    const { data: target, error: targetError } = await admin.from("profiles")
+      .select("id, display_name, role, status")
+      .eq("id", targetProfileId).maybeSingle();
+    if (targetError || !target) return respond(404, { error: "Conta não encontrada." });
+    if (target.role !== "treinador_principal" || target.status !== "convite_pendente") {
+      return respond(409, { error: "Só é possível reenviar convites pendentes de Treinador Principal." });
+    }
+
+    const { data: staffMember, error: staffError } = await admin.from("staff_members")
+      .select("id, name, full_name, email, status")
+      .eq("profile_id", targetProfileId).maybeSingle();
+    if (staffError || !staffMember) return respond(409, { error: "Não foi encontrada a ficha Staff associada a esta conta." });
+
+    const { data: existingAuth, error: existingAuthError } = await admin.auth.admin.getUserById(targetProfileId);
+    if (existingAuthError || !existingAuth.user) return respond(502, { error: "Não foi possível validar o convite atual." });
+    if (existingAuth.user.email_confirmed_at) return respond(409, { error: "Esta conta já confirmou o email. Não é necessário reenviar o convite." });
+    const email = existingAuth.user.email ?? staffMember.email;
+    if (!email || email.toLowerCase() !== staffMember.email.toLowerCase()) {
+      return respond(409, { error: "O email da conta não corresponde ao email da ficha Staff." });
+    }
+
+    const { error: deleteOldInviteError } = await admin.auth.admin.deleteUser(targetProfileId);
+    if (deleteOldInviteError) return respond(502, { error: "Não foi possível invalidar o convite anterior." });
+
+    const redirectTo = Deno.env.get("APP_REDIRECT_URL") ?? "https://miguelcustodio9.github.io/plataforma-futsal/";
+    const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { display_name: target.display_name },
+      redirectTo,
+    });
+    if (inviteError || !invitation.user) {
+      await admin.from("staff_members").update({ profile_id: null, status: "convite_expirado" }).eq("id", staffMember.id);
+      console.error("Erro ao reenviar convite de Treinador Principal:", inviteError?.message);
+      return respond(502, { error: "Não foi possível enviar o novo convite. A ficha foi preservada para permitir nova tentativa através da gestão de Staff." });
+    }
+
+    const newUserId = invitation.user.id;
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: newUserId,
+      display_name: target.display_name,
+      role: "treinador_principal",
+      status: "convite_pendente",
+    });
+    if (profileError) {
+      await admin.auth.admin.deleteUser(newUserId);
+      await admin.from("staff_members").update({ profile_id: null, status: "convite_expirado" }).eq("id", staffMember.id);
+      console.error("Erro ao criar novo perfil de Treinador Principal:", profileError.message);
+      return respond(500, { error: "Não foi possível associar o novo convite. A ficha Staff foi preservada." });
+    }
+
+    const sentAt = new Date();
+    const { error: memberUpdateError } = await admin.from("staff_members").update({
+      profile_id: newUserId,
+      status: "convite_enviado",
+      invite_sent_at: sentAt.toISOString(),
+      invite_expires_at: new Date(sentAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    }).eq("id", staffMember.id);
+    if (memberUpdateError) {
+      await admin.from("profiles").delete().eq("id", newUserId);
+      await admin.auth.admin.deleteUser(newUserId);
+      await admin.from("staff_members").update({ profile_id: null, status: "convite_expirado" }).eq("id", staffMember.id);
+      console.error("Erro ao atualizar ficha Staff após reenvio:", memberUpdateError.message);
+      return respond(500, { error: "Não foi possível atualizar a ficha Staff. O novo convite foi invalidado." });
+    }
+
+    const { error: auditError } = await admin.from("platform_access_audit").insert({
+      target_profile_id: newUserId,
+      actor_profile_id: authData.user.id,
+      event_type: "account_invite_resent",
+      previous_status: "convite_pendente",
+      new_status: "convite_pendente",
+    });
+    if (auditError) {
+      await admin.from("staff_members").update({ profile_id: null, status: "convite_expirado" }).eq("id", staffMember.id);
+      await admin.from("profiles").delete().eq("id", newUserId);
+      await admin.auth.admin.deleteUser(newUserId);
+      console.error("Erro de auditoria no reenvio; novo convite revertido:", auditError.message);
+      return respond(500, { error: "Não foi possível concluir a auditoria. O convite foi invalidado e a ficha foi preservada." });
+    }
+
+    return respond(200, { message: "Novo convite de Treinador Principal enviado com sucesso." });
+  }
+
   if (payload.action === "list") {
     const { data: profiles, error: profilesError } = await admin.from("profiles")
       .select("id, display_name, role, status, created_at")
