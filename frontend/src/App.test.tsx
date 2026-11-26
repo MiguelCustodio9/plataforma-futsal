@@ -88,7 +88,7 @@ afterEach(() => {
   mockFunctionInvoke.mockImplementation(async (name: string, options?: { body?: { action?: string; status?: string } }) => {
     if (name === "accept-staff-invite") mockProfile.status = "ativo";
     if (name === "manage-platform-access" && options?.body?.action === "list") {
-      return { data: { accounts: [] }, error: null };
+      return { data: { accounts: mockAccessAccounts }, error: null };
     }
     return { data: { message: "Operação concluída." }, error: null };
   });
