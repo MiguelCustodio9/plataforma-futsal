@@ -7,6 +7,7 @@ vi.mock("./lib/supabase", () => ({
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       signInWithPassword: vi.fn(),
       resetPasswordForEmail: vi.fn(),
+      updateUser: vi.fn().mockResolvedValue({ data: { user: { id: "test-user" } }, error: null }),
       signOut: vi.fn(),
     },
   },
@@ -14,9 +15,12 @@ vi.mock("./lib/supabase", () => ({
 }));
 
 import App from "./App";
+import { supabase } from "./lib/supabase";
 
 afterEach(() => {
   cleanup();
+  window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+  vi.clearAllMocks();
 });
 
 describe("plataforma de futsal", () => {
@@ -69,5 +73,38 @@ describe("plataforma de futsal", () => {
     fireEvent.change(within(dialog).getByLabelText("Email de convite *"), { target: { value: "treinador@exemplo.pt" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Guardar elemento" }));
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Já existe um registo de Staff com este email.");
+  });
+});
+
+
+describe("definição de palavra-passe", () => {
+  it("apresenta o formulário quando a pessoa abre um convite", async () => {
+    window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Definir palavra-passe" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nova palavra-passe")).toBeInTheDocument();
+    expect(screen.getByLabelText("Confirmar palavra-passe")).toBeInTheDocument();
+  });
+
+  it("rejeita uma palavra-passe que não cumpre os requisitos", async () => {
+    window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Definir palavra-passe" });
+    fireEvent.change(screen.getByLabelText("Nova palavra-passe"), { target: { value: "palavrapasse" } });
+    fireEvent.change(screen.getByLabelText("Confirmar palavra-passe"), { target: { value: "palavrapasse" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar palavra-passe" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("A palavra-passe deve ter pelo menos 12 caracteres");
+    expect(supabase.auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it("guarda a palavra-passe e encaminha para a plataforma", async () => {
+    window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Definir palavra-passe" });
+    fireEvent.change(screen.getByLabelText("Nova palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.change(screen.getByLabelText("Confirmar palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar palavra-passe" }));
+    expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: "FutsalSeguro2026!" });
+    expect(await screen.findByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
   });
 });
