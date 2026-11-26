@@ -102,7 +102,7 @@ describe("plataforma de futsal", () => {
   it("abre a área Staff e carrega a lista persistida", async () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     expect(await screen.findByText("Não foram encontrados elementos.")).toBeInTheDocument();
     expect(supabase.from).toHaveBeenCalledWith("staff_members");
   });
@@ -110,7 +110,7 @@ describe("plataforma de futsal", () => {
   it("guarda um novo elemento e as respetivas funções no Supabase", async () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     await screen.findByText("Não foram encontrados elementos.");
     fireEvent.click(screen.getByRole("button", { name: /Adicionar elemento/ }));
     const dialog = screen.getByRole("dialog");
@@ -143,7 +143,7 @@ describe("plataforma de futsal", () => {
     });
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     expect(await screen.findByText("Nova treinadora")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Enviar convite" }));
     await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("invite-staff", {
@@ -164,7 +164,7 @@ describe("plataforma de futsal", () => {
     });
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Reenviar convite" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/convite anterior será invalidado/i)).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe("plataforma de futsal", () => {
     });
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Eliminar conta" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/ficha Staff, as funções e o histórico serão preservados/i)).toBeInTheDocument();
@@ -200,7 +200,7 @@ describe("plataforma de futsal", () => {
     mockProfile.role = "treinador_principal";
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     expect(await screen.findByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
   });
 
@@ -208,7 +208,7 @@ describe("plataforma de futsal", () => {
     mockProfile.role = "staff";
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     expect(screen.queryByRole("button", { name: /Adicionar elemento/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
     expect(screen.getByText(/Apenas o Administrador Principal e o Treinador Principal/)).toBeInTheDocument();
@@ -230,7 +230,7 @@ describe("plataforma de futsal", () => {
     });
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     expect(await screen.findByText("Treinador existente")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Adicionar elemento/ }));
     const dialog = screen.getByRole("dialog");
