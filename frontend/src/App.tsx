@@ -214,7 +214,19 @@ function Dashboard({ profile }: { profile: UserProfile }) {
       await loadStaff();
     } catch (error) {
       console.error("Erro ao enviar convite de Staff:", error);
-      setStaffError("Não foi possível enviar o convite. Confirma a configuração de email e tenta novamente.");
+      let message = "Não foi possível enviar o convite. Tenta novamente.";
+      if (error && typeof error === "object" && "context" in error) {
+        const context = (error as { context?: unknown }).context;
+        if (context instanceof Response) {
+          try {
+            const payload = await context.clone().json() as { error?: unknown };
+            if (typeof payload.error === "string" && payload.error.trim()) message = payload.error;
+          } catch {
+            // Mantém a mensagem genérica se a resposta não tiver JSON válido.
+          }
+        }
+      }
+      setStaffError(message);
     } finally {
       setInvitingStaffId(null);
     }
