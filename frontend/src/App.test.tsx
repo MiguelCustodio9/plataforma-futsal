@@ -2,12 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke } = vi.hoisted(() => ({
-  mockProfile: { role: "administrador_principal" },
+  mockProfile: { role: "administrador_principal", status: "ativo" },
   mockStaffOrder: vi.fn().mockResolvedValue({ data: [], error: null }),
   mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
   mockRoleInsert: vi.fn().mockResolvedValue({ error: null }),
   mockStaffUpdate: vi.fn().mockResolvedValue({ error: null }),
-  mockFunctionInvoke: vi.fn().mockResolvedValue({ data: { message: "Convite enviado com sucesso." }, error: null }),
+  mockFunctionInvoke: vi.fn(async (name: string) => {
+    if (name === "accept-staff-invite") mockProfile.status = "ativo";
+    return { data: { message: "Operação concluída." }, error: null };
+  }),
 }));
 
 vi.mock("./lib/supabase", () => ({
@@ -21,7 +24,7 @@ vi.mock("./lib/supabase", () => ({
                 data: {
                   display_name: "Administrador de Teste",
                   role: mockProfile.role,
-                  status: "ativo",
+                  status: mockProfile.status,
                 },
                 error: null,
               }),
@@ -72,11 +75,15 @@ afterEach(() => {
   window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
   vi.clearAllMocks();
   mockProfile.role = "administrador_principal";
+  mockProfile.status = "ativo";
   mockStaffOrder.mockResolvedValue({ data: [], error: null });
   mockStaffInsert.mockResolvedValue({ data: { id: "staff-123" }, error: null });
   mockRoleInsert.mockResolvedValue({ error: null });
   mockStaffUpdate.mockResolvedValue({ error: null });
-  mockFunctionInvoke.mockResolvedValue({ data: { message: "Convite enviado com sucesso." }, error: null });
+  mockFunctionInvoke.mockImplementation(async (name: string) => {
+    if (name === "accept-staff-invite") mockProfile.status = "ativo";
+    return { data: { message: "Operação concluída." }, error: null };
+  });
 });
 
 describe("plataforma de futsal", () => {
@@ -201,6 +208,19 @@ describe("definição de palavra-passe", () => {
     expect(await screen.findByRole("heading", { name: "Definir palavra-passe" })).toBeInTheDocument();
     expect(screen.getByLabelText("Nova palavra-passe")).toBeInTheDocument();
     expect(screen.getByLabelText("Confirmar palavra-passe")).toBeInTheDocument();
+  });
+
+  it("ativa o perfil Staff depois de definir a palavra-passe do convite", async () => {
+    mockProfile.role = "staff";
+    mockProfile.status = "convite_pendente";
+    window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Definir palavra-passe" });
+    fireEvent.change(screen.getByLabelText("Nova palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.change(screen.getByLabelText("Confirmar palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar palavra-passe" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("accept-staff-invite", { body: {} }));
+    expect(await screen.findByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
   });
 
   it("rejeita uma palavra-passe que não cumpre os requisitos", async () => {
