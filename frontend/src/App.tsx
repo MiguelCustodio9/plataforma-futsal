@@ -14,6 +14,7 @@ const staffRoles = [
 type StaffStatus = "Ativo" | "Convite pendente" | "Convite expirado" | "Suspenso" | "Arquivado";
 type StaffMember = {
   id: string;
+  profileId: string | null;
   name: string;
   fullName: string;
   email: string;
@@ -25,6 +26,7 @@ type StaffMember = {
 
 type StaffDbRow = {
   id: string;
+  profile_id: string | null;
   name: string;
   full_name: string;
   email: string;
@@ -54,6 +56,7 @@ const statusToDatabase: Record<StaffStatus, StaffDbRow["status"]> = {
 function mapStaffRow(row: StaffDbRow): StaffMember {
   return {
     id: row.id,
+    profileId: row.profile_id,
     name: row.name,
     fullName: row.full_name,
     email: row.email,
@@ -101,7 +104,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     try {
       const { data, error } = await supabase
         .from("staff_members")
-        .select("id, name, full_name, email, birth_date, status, created_at, staff_member_roles(role_name)")
+        .select("id, profile_id, name, full_name, email, birth_date, status, created_at, staff_member_roles(role_name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       setStaff(((data ?? []) as StaffDbRow[]).map(mapStaffRow));
@@ -295,7 +298,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
                       <div className="staff-person"><span className="staff-avatar">{member.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{member.name}</strong><span>{member.email}</span></div></div>
                       <div className="staff-roles">{member.roles.map((role) => <span key={role}>{role}</span>)}</div>
                       <div><span className={`status-pill status-${member.status.toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{member.status}</span></div>
-                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => void changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" || member.status === "Convite expirado" ? <button onClick={() => void sendStaffInvite(member)} disabled={invitingStaffId === member.id}>{invitingStaffId === member.id ? "A enviar…" : member.status === "Convite expirado" ? "Reenviar convite" : "Enviar convite"}</button> : <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
+                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => void changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" && !member.profileId ? <button onClick={() => void sendStaffInvite(member)} disabled={invitingStaffId === member.id}>{invitingStaffId === member.id ? "A enviar…" : "Enviar convite"}</button> : member.status === "Convite pendente" ? <span>Convite enviado</span> : member.status === "Convite expirado" ? <span>Convite expirado</span> : <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
                     </article>
                   ))}
                 </div>
