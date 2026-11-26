@@ -60,6 +60,9 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .section-heading h2 { margin: 5px 0 0; font: 600 20px "Space Grotesk", sans-serif; }
 .module-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
 .module-card { min-height: 150px; padding: 17px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+.admin-shortcut { display: block; width: 100%; color: inherit; text-align: left; font: inherit; cursor: pointer; transition: border-color .18s ease, transform .18s ease, background .18s ease; }
+.admin-shortcut:hover { border-color: var(--accent); transform: translateY(-2px); }
+.admin-shortcut:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .module-number { color: var(--accent); font: 600 11px "Space Grotesk", sans-serif; }
 .module-card h3 { margin: 13px 0 5px; font: 600 14px "Space Grotesk", sans-serif; }
 .module-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
