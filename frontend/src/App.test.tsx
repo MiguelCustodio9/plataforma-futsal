@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke } = vi.hoisted(() => ({
+const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke, mockAccessAccounts } = vi.hoisted(() => ({
   mockProfile: { role: "administrador_principal", status: "ativo" },
+  mockAccessAccounts: [] as Array<{ id: string; display_name: string; email: string; role: string; status: string; created_at: string; last_sign_in_at: string }>,
   mockStaffOrder: vi.fn().mockResolvedValue({ data: [], error: null }),
   mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
   mockRoleInsert: vi.fn().mockResolvedValue({ error: null }),
@@ -10,7 +11,7 @@ const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffU
   mockFunctionInvoke: vi.fn(async (name: string, options?: { body?: { action?: string; status?: string } }) => {
     if (name === "accept-staff-invite") mockProfile.status = "ativo";
     if (name === "manage-platform-access" && options?.body?.action === "list") {
-      return { data: { accounts: [] }, error: null };
+      return { data: { accounts: mockAccessAccounts }, error: null };
     }
     return { data: { message: "Operação concluída." }, error: null };
   }),
@@ -79,6 +80,7 @@ afterEach(() => {
   vi.clearAllMocks();
   mockProfile.role = "administrador_principal";
   mockProfile.status = "ativo";
+  mockAccessAccounts.length = 0;
   mockStaffOrder.mockResolvedValue({ data: [], error: null });
   mockStaffInsert.mockResolvedValue({ data: { id: "staff-123" }, error: null });
   mockRoleInsert.mockResolvedValue({ error: null });
@@ -139,6 +141,29 @@ describe("plataforma de futsal", () => {
     expect(await screen.findByRole("heading", { name: "Gestão de acessos" })).toBeInTheDocument();
     expect(await screen.findByText("Não foram encontradas contas.")).toBeInTheDocument();
     expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", { body: { action: "list" } });
+  });
+
+  it("permite suspender uma conta a partir da Gestão de acessos com confirmação", async () => {
+    mockAccessAccounts.push({
+      id: "staff-account-2",
+      display_name: "Conta de Staff",
+      email: "staff@exemplo.pt",
+      role: "staff",
+      status: "ativo",
+      created_at: "2026-11-26T10:00:00Z",
+      last_sign_in_at: "2026-11-26T12:00:00Z",
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
+    expect(await screen.findByText("Conta de Staff")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Suspender" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/ficará impedida de iniciar sessão/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar suspensão" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", {
+      body: { action: "set_status", targetProfileId: "staff-account-2", status: "suspenso" },
+    }));
   });
 
   it("apresenta a opção para terminar uma sessão autenticada", async () => {
