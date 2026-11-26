@@ -141,6 +141,11 @@ button { cursor: pointer; }
 .staff-actions { display:flex; justify-content:flex-end; gap:6px; }
 .staff-actions button,.icon-button { border:1px solid var(--line); border-radius:6px; padding:7px 9px; background:transparent; color:#d9eee1; font-size:10px; }
 .staff-actions button:hover,.icon-button:hover { border-color:#159765; background:rgba(0,117,73,.12); }
+.invite-sent-label { display:inline-flex; align-items:center; gap:9px; min-width:142px; padding:7px 11px; border:1px solid rgba(83,190,135,.28); border-radius:9px; background:linear-gradient(135deg,rgba(26,112,72,.22),rgba(16,64,43,.16)); color:#d9f5e4; }
+.invite-sent-icon { display:grid; place-items:center; flex:0 0 25px; width:25px; height:25px; border-radius:50%; background:rgba(62,181,117,.18); color:#75dfa0; font-size:13px; font-weight:800; }
+.invite-sent-copy { display:grid; gap:2px; text-align:left; }
+.invite-sent-copy strong { font-size:10px; font-weight:700; line-height:1.2; }
+.invite-sent-copy small { color:#91bda2; font-size:9px; line-height:1.2; }
 .empty-state { display:grid; gap:7px; padding:38px 20px; text-align:center; }
 .empty-state strong { font-size:13px; }
 .empty-state span { color:var(--muted); font-size:11px; }
