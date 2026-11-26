@@ -56,7 +56,7 @@ Deno.serve(async (request) => {
   if (payload.action === "create_trainer_principal") {
     const displayName = typeof payload.displayName === "string" ? payload.displayName.trim() : "";
     const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-    if (!displayName || displayName.length > 120 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 320) {
+    if (!displayName || displayName.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
       return respond(400, { error: "Indica um nome e um endereço de email válido." });
     }
 
