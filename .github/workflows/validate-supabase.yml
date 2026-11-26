@@ -1,0 +1,33 @@
+name: Validar Supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - ".github/workflows/validate-supabase.yml"
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - ".github/workflows/validate-supabase.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-edge-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+
+      - name: Configurar Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Verificar Edge Function
+        run: deno check supabase/functions/bootstrap-first-admin/index.ts
