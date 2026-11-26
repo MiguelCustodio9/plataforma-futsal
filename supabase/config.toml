@@ -3,3 +3,6 @@ verify_jwt = true
 
 [functions.accept-staff-invite]
 verify_jwt = true
+
+[functions.manage-staff-account]
+verify_jwt = true
