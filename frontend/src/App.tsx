@@ -22,6 +22,7 @@ type StaffMember = {
   roles: string[];
   status: StaffStatus;
   createdAt: string;
+  accountDeletedAt: string | null;
 };
 
 type StaffDbRow = {
@@ -33,6 +34,7 @@ type StaffDbRow = {
   birth_date: string | null;
   status: "pendente" | "convite_enviado" | "ativo" | "suspenso" | "convite_expirado" | "arquivado";
   created_at: string;
+  account_deleted_at: string | null;
   staff_member_roles: { role_name: string }[] | null;
 };
 
@@ -64,6 +66,7 @@ function mapStaffRow(row: StaffDbRow): StaffMember {
     roles: (row.staff_member_roles ?? []).map((role) => role.role_name),
     status: statusFromDatabase[row.status],
     createdAt: row.created_at.slice(0, 10),
+    accountDeletedAt: row.account_deleted_at,
   };
 }
 
@@ -90,6 +93,9 @@ function Dashboard({ profile }: { profile: UserProfile }) {
   const [staffError, setStaffError] = useState("");
   const [savingStaff, setSavingStaff] = useState(false);
   const [invitingStaffId, setInvitingStaffId] = useState<string | null>(null);
+  const [accountActionMember, setAccountActionMember] = useState<StaffMember | null>(null);
+  const [accountAction, setAccountAction] = useState<"resend_invite" | "delete_account" | null>(null);
+  const [accountActionBusy, setAccountActionBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [roleFilter, setRoleFilter] = useState("Todas");
@@ -104,7 +110,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     try {
       const { data, error } = await supabase
         .from("staff_members")
-        .select("id, profile_id, name, full_name, email, birth_date, status, created_at, staff_member_roles(role_name)")
+        .select("id, profile_id, name, full_name, email, birth_date, status, created_at, account_deleted_at, staff_member_roles(role_name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       setStaff(((data ?? []) as StaffDbRow[]).map(mapStaffRow));
@@ -237,6 +243,36 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     }
   };
 
+  const manageStaffAccount = async () => {
+    if (!accountActionMember || !accountAction) return;
+    setAccountActionBusy(true);
+    setStaffError("");
+    try {
+      const { error } = await supabase.functions.invoke("manage-staff-account", {
+        body: { action: accountAction, staffMemberId: accountActionMember.id },
+      });
+      if (error) throw error;
+      setAccountActionMember(null);
+      setAccountAction(null);
+      await loadStaff();
+    } catch (error) {
+      console.error("Erro ao gerir conta Staff:", error);
+      let message = "Não foi possível concluir a operação. Tenta novamente.";
+      if (error && typeof error === "object" && "context" in error) {
+        const context = (error as { context?: unknown }).context;
+        if (context instanceof Response) {
+          try {
+            const payload = await context.clone().json() as { error?: unknown };
+            if (typeof payload.error === "string" && payload.error.trim()) message = payload.error;
+          } catch { /* Mantém a mensagem genérica. */ }
+        }
+      }
+      setStaffError(message);
+    } finally {
+      setAccountActionBusy(false);
+    }
+  };
+
   const changeStatus = async (id: string, status: StaffStatus) => {
     setStaffError("");
     const { error } = await supabase.from("staff_members")
@@ -315,7 +351,18 @@ function Dashboard({ profile }: { profile: UserProfile }) {
                       <div className="staff-person"><span className="staff-avatar">{member.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{member.name}</strong><span>{member.email}</span></div></div>
                       <div className="staff-roles">{member.roles.map((role) => <span key={role}>{role}</span>)}</div>
                       <div><span className={`status-pill status-${member.status.toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{member.status}</span></div>
-                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => void changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" && !member.profileId ? <button onClick={() => void sendStaffInvite(member)} disabled={invitingStaffId === member.id}>{invitingStaffId === member.id ? "A enviar…" : "Enviar convite"}</button> : member.status === "Convite pendente" ? <span className="invite-sent-label"><span className="invite-sent-icon" aria-hidden="true">✓</span><span className="invite-sent-copy"><strong>Convite enviado</strong><small>Email enviado</small></span></span> : member.status === "Convite expirado" ? <span>Convite expirado</span> : <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
+                      {canManageStaff && <div className="staff-actions">
+                        <button onClick={() => openEditForm(member)}>Editar</button>
+                        {member.status === "Ativo" && member.profileId && <button onClick={() => void changeStatus(member.id, "Suspenso")}>Suspender</button>}
+                        {member.status === "Suspenso" && <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button>}
+                        {member.status === "Convite pendente" && !member.profileId && <button onClick={() => void sendStaffInvite(member)} disabled={invitingStaffId === member.id}>{invitingStaffId === member.id ? "A enviar…" : "Enviar convite"}</button>}
+                        {member.status === "Convite pendente" && member.profileId && <button onClick={() => { setAccountActionMember(member); setAccountAction("resend_invite"); }}>Reenviar convite</button>}
+                        {member.status === "Convite expirado" && <button onClick={() => { setAccountActionMember(member); setAccountAction("resend_invite"); }}>Reenviar convite</button>}
+                        {member.status === "Ativo" && !member.profileId && member.accountDeletedAt && <button onClick={() => { setAccountActionMember(member); setAccountAction("resend_invite"); }}>Restaurar acesso</button>}
+                        {member.status === "Ativo" && member.profileId && <button onClick={() => { setAccountActionMember(member); setAccountAction("delete_account"); }}>Eliminar conta</button>}
+                        {member.status === "Suspenso" && member.profileId && <button onClick={() => { setAccountActionMember(member); setAccountAction("delete_account"); }}>Eliminar conta</button>}
+                        {member.accountDeletedAt && <span className="invite-sent-label"><span className="invite-sent-copy"><strong>Conta eliminada</strong><small>{new Date(member.accountDeletedAt).toLocaleDateString("pt-PT")}</small></span></span>}
+                      </div>}
                     </article>
                   ))}
                 </div>
@@ -333,6 +380,13 @@ function Dashboard({ profile }: { profile: UserProfile }) {
         )}
       </section>
 
+      {accountActionMember && accountAction && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !accountActionBusy) { setAccountActionMember(null); setAccountAction(null); } }}>
+        <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="account-action-title">
+          <div className="modal-heading"><div><span className="eyebrow">SEGURANÇA DA CONTA</span><h2 id="account-action-title">{accountAction === "delete_account" ? "Eliminar conta de acesso" : "Reenviar convite"}</h2></div><button className="icon-button" onClick={() => { setAccountActionMember(null); setAccountAction(null); }} aria-label="Fechar" disabled={accountActionBusy}>×</button></div>
+          {accountAction === "delete_account" ? <p>Vais eliminar a conta de acesso de <strong>{accountActionMember.name}</strong> ({accountActionMember.email}). A ficha Staff, as funções e o histórico serão preservados. A pessoa deixará de conseguir iniciar sessão.</p> : <p>Será enviado um novo convite para <strong>{accountActionMember.email}</strong>. O convite anterior será invalidado. A ficha Staff e o histórico serão mantidos.</p>}
+          <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => { setAccountActionMember(null); setAccountAction(null); }} disabled={accountActionBusy}>Cancelar</button><button type="button" className="primary-button" onClick={() => void manageStaffAccount()} disabled={accountActionBusy}>{accountActionBusy ? "A processar…" : accountAction === "delete_account" ? "Confirmar eliminação" : "Confirmar reenvio"}</button></div>
+        </section>
+      </div>}
       {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowForm(false); }}>
         <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="staff-form-title">
           <div className="modal-heading"><div><span className="eyebrow">GESTÃO DE EQUIPA</span><h2 id="staff-form-title">{editingId === null ? "Adicionar elemento" : "Editar elemento"}</h2></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Fechar">×</button></div>
