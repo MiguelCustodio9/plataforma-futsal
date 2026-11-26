@@ -155,6 +155,7 @@ describe("plataforma de futsal", () => {
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Nome apresentado *"), { target: { value: "Duplicado" } });
     fireEvent.change(within(dialog).getByLabelText("Email de convite *"), { target: { value: "treinador@exemplo.pt" } });
+    fireEvent.click(within(dialog).getByLabelText("Treinador Principal"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Guardar elemento" }));
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Já existe um registo de Staff com este email.");
   });
