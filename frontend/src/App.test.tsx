@@ -279,8 +279,8 @@ describe("definição de palavra-passe", () => {
     expect(supabase.auth.updateUser).not.toHaveBeenCalled();
   });
 
-  it("guarda a palavra-passe e encaminha para a plataforma", async () => {
-    window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
+  it("guarda a palavra-passe num fluxo de recuperação sem ativar um convite", async () => {
+    window.history.replaceState(null, document.title, "/#access_token=test&type=recovery");
     render(<App />);
     await screen.findByRole("heading", { name: "Definir palavra-passe" });
     fireEvent.change(screen.getByLabelText("Nova palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
