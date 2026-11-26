@@ -100,7 +100,15 @@ Deno.serve(async (request) => {
     { data: { display_name: member.name }, redirectTo },
   );
   if (inviteError || !invitation.user) {
-    return respond(502, { error: "Não foi possível enviar o convite. Verifica a configuração de email da Supabase." });
+    console.error("Erro ao enviar convite de Staff:", {
+      code: inviteError?.code,
+      message: inviteError?.message,
+      status: inviteError?.status,
+    });
+    return respond(502, {
+      error: "Não foi possível enviar o convite.",
+      diagnostic: [inviteError?.code, inviteError?.message].filter(Boolean).join(" — ") || "O serviço de autenticação não devolveu os dados do convite.",
+    });
   }
 
   const { error: profileError } = await admin.from("profiles").insert({
