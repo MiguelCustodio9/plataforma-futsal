@@ -1,5 +1,18 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+vi.mock("./lib/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "test-user" } } }, error: null }),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      signInWithPassword: vi.fn(),
+      resetPasswordForEmail: vi.fn(),
+      signOut: vi.fn(),
+    },
+  },
+  testSupabaseConnection: vi.fn().mockResolvedValue(true),
+}));
+
 import App from "./App";
 
 afterEach(() => {
