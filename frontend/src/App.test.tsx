@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate } = vi.hoisted(() => ({
+const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke } = vi.hoisted(() => ({
   mockProfile: { role: "administrador_principal" },
   mockStaffOrder: vi.fn().mockResolvedValue({ data: [], error: null }),
   mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
   mockRoleInsert: vi.fn().mockResolvedValue({ error: null }),
   mockStaffUpdate: vi.fn().mockResolvedValue({ error: null }),
+  mockFunctionInvoke: vi.fn().mockResolvedValue({ data: { message: "Convite enviado com sucesso." }, error: null }),
 }));
 
 vi.mock("./lib/supabase", () => ({
@@ -56,6 +57,9 @@ vi.mock("./lib/supabase", () => ({
       updateUser: vi.fn().mockResolvedValue({ data: { user: { id: "test-user" } }, error: null }),
       signOut: vi.fn(),
     },
+    functions: {
+      invoke: mockFunctionInvoke,
+    },
   },
   testSupabaseConnection: vi.fn().mockResolvedValue(true),
 }));
@@ -72,6 +76,7 @@ afterEach(() => {
   mockStaffInsert.mockResolvedValue({ data: { id: "staff-123" }, error: null });
   mockRoleInsert.mockResolvedValue({ error: null });
   mockStaffUpdate.mockResolvedValue({ error: null });
+  mockFunctionInvoke.mockResolvedValue({ data: { message: "Convite enviado com sucesso." }, error: null });
 });
 
 describe("plataforma de futsal", () => {
@@ -113,6 +118,30 @@ describe("plataforma de futsal", () => {
     expect(mockRoleInsert).toHaveBeenCalledWith([
       { staff_member_id: "staff-123", role_name: "Treinador Principal" },
     ]);
+  });
+
+  it("envia um convite a um elemento de Staff pendente", async () => {
+    mockStaffOrder.mockResolvedValueOnce({
+      data: [{
+        id: "staff-invite-1",
+        name: "Nova treinadora",
+        full_name: "Nova treinadora",
+        email: "nova@exemplo.pt",
+        birth_date: null,
+        status: "pendente",
+        created_at: "2026-11-26T10:00:00Z",
+        staff_member_roles: [{ role_name: "Treinador Principal" }],
+      }],
+      error: null,
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    expect(await screen.findByText("Nova treinadora")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Enviar convite" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("invite-staff", {
+      body: { staffMemberId: "staff-invite-1" },
+    }));
   });
 
   it("permite ao Treinador Principal gerir o Staff", async () => {
