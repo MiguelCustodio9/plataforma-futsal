@@ -132,6 +132,7 @@ describe("plataforma de futsal", () => {
   });
 
   it("abre a área Staff e carrega a lista persistida", async () => {
+    mockProfile.role = "treinador_principal";
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
@@ -140,6 +141,7 @@ describe("plataforma de futsal", () => {
   });
 
   it("guarda um novo elemento e as respetivas funções no Supabase", async () => {
+    mockProfile.role = "treinador_principal";
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
@@ -160,6 +162,7 @@ describe("plataforma de futsal", () => {
   });
 
   it("envia um convite a um elemento de Staff pendente", async () => {
+    mockProfile.role = "treinador_principal";
     mockStaffOrder.mockResolvedValueOnce({
       data: [{
         id: "staff-invite-1",
@@ -185,6 +188,7 @@ describe("plataforma de futsal", () => {
 
 
   it("permite reenviar um convite pendente sem criar outra ficha", async () => {
+    mockProfile.role = "treinador_principal";
     mockStaffOrder.mockResolvedValueOnce({
       data: [{
         id: "staff-invite-2", profile_id: "pending-profile-2", name: "Treinadora Pendente",
@@ -207,6 +211,7 @@ describe("plataforma de futsal", () => {
   });
 
   it("permite eliminar a conta de acesso sem eliminar a ficha Staff", async () => {
+    mockProfile.role = "treinador_principal";
     mockStaffOrder.mockResolvedValueOnce({
       data: [{
         id: "staff-active-1", profile_id: "active-profile-1", name: "Treinador Ativo",
@@ -247,6 +252,7 @@ describe("plataforma de futsal", () => {
   });
 
   it("impede registar um email que já existe na base de dados", async () => {
+    mockProfile.role = "treinador_principal";
     mockStaffOrder.mockResolvedValueOnce({
       data: [{
         id: "existing-1",
