@@ -1,2 +1,5 @@
-[functions.bootstrap-first-admin]
-verify_jwt = false
+[functions.invite-staff]
+verify_jwt = true
+
+[functions.accept-staff-invite]
+verify_jwt = true
