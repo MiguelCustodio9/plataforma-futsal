@@ -59,13 +59,34 @@ create unique index if not exists staff_members_email_lower_uidx
   on public.staff_members (lower(email));
 create index if not exists staff_members_status_idx
   on public.staff_members (status);
+create index if not exists staff_members_profile_idx
+  on public.staff_members (profile_id);
 create index if not exists staff_members_name_lower_idx
   on public.staff_members (lower(name));
 
-drop trigger if exists staff_members_set_updated_at on public.staff_members;
-create trigger staff_members_set_updated_at
-before update on public.staff_members
-for each row execute function public.profiles_set_updated_at();
+create or replace function public.staff_members_set_audit_fields()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  if tg_op = 'INSERT' then
+    new.created_by := coalesce(new.created_by, (select auth.uid()));
+  else
+    new.created_by := old.created_by;
+    new.updated_by := (select auth.uid());
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$;
+
+drop trigger if exists staff_members_set_audit_fields on public.staff_members;
+create trigger staff_members_set_audit_fields
+before insert or update on public.staff_members
+for each row execute function public.staff_members_set_audit_fields();
+
+revoke all on function public.staff_members_set_audit_fields() from public, anon, authenticated;
 
 create table if not exists public.staff_member_roles (
   id uuid primary key default gen_random_uuid(),
@@ -96,7 +117,11 @@ alter table public.staff_member_roles enable row level security;
 revoke all on table public.staff_members from public, anon, authenticated;
 revoke all on table public.staff_member_roles from public, anon, authenticated;
 
-grant select, insert, update on table public.staff_members to authenticated;
+grant select on table public.staff_members to authenticated;
+grant insert (name, full_name, email, birth_date, photo_path, status)
+  on table public.staff_members to authenticated;
+grant update (name, full_name, email, birth_date, photo_path, status, invite_sent_at, invite_expires_at)
+  on table public.staff_members to authenticated;
 grant select, insert, delete on table public.staff_member_roles to authenticated;
 
 drop policy if exists "staff_members_read_active_accounts" on public.staff_members;
@@ -116,7 +141,7 @@ create policy "staff_members_insert_managers"
 on public.staff_members for insert to authenticated
 with check (
   public.current_user_can_manage_staff()
-  and (created_by is null or created_by = (select auth.uid()))
+  and created_by = (select auth.uid())
 );
 
 drop policy if exists "staff_members_update_managers" on public.staff_members;
@@ -151,5 +176,7 @@ comment on table public.staff_members is
   'Registos privados dos elementos do Staff. A gestão é exclusiva do Administrador Principal e do Treinador Principal.';
 comment on table public.staff_member_roles is
   'Funções permanentes de cada elemento do Staff; um elemento pode ter várias funções.';
+comment on function public.staff_members_set_audit_fields() is
+  'Preenche automaticamente os campos de auditoria e impede alterar o autor de criação.';
 comment on function public.current_user_can_manage_staff() is
   'Autoriza exclusivamente Administrador Principal e Treinador Principal ativos a gerir o Staff.';
