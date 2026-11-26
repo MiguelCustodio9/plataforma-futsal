@@ -102,6 +102,8 @@ describe("plataforma de futsal", () => {
     await screen.findByText("Não foram encontrados elementos.");
     fireEvent.click(screen.getByRole("button", { name: /Adicionar elemento/ }));
     const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("Treinador Adjunto")).not.toBeChecked();
+    expect(within(dialog).getByLabelText("Treinador Principal")).not.toBeChecked();
     fireEvent.change(within(dialog).getByLabelText("Nome apresentado *"), { target: { value: "Nova treinadora" } });
     fireEvent.change(within(dialog).getByLabelText("Email de convite *"), { target: { value: "nova@exemplo.pt" } });
     fireEvent.click(within(dialog).getByLabelText("Treinador Principal"));
@@ -109,7 +111,6 @@ describe("plataforma de futsal", () => {
     await waitForDialogToClose();
     expect(mockStaffInsert).toHaveBeenCalled();
     expect(mockRoleInsert).toHaveBeenCalledWith([
-      { staff_member_id: "staff-123", role_name: "Treinador Adjunto" },
       { staff_member_id: "staff-123", role_name: "Treinador Principal" },
     ]);
   });
