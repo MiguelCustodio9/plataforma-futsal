@@ -109,6 +109,7 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
   const [showTrainerForm, setShowTrainerForm] = useState(false);
   const [trainerName, setTrainerName] = useState("");
   const [trainerEmail, setTrainerEmail] = useState("");
+  const [trainerFormError, setTrainerFormError] = useState("");
   const [inviteTarget, setInviteTarget] = useState<PlatformAccount | null>(null);
 
   const loadAccounts = useCallback(async () => {
@@ -184,11 +185,12 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     const name = trainerName.trim();
     const email = trainerEmail.trim().toLocaleLowerCase("pt-PT");
     if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Indica um nome e um endereço de email válido.");
+      setTrainerFormError("Confirma o nome e introduz um endereço de email válido.");
       return;
     }
     setBusy(true);
     setError("");
+    setTrainerFormError("");
     setNotice("");
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
@@ -208,13 +210,14 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
       setNotice(typeof data?.message === "string" ? data.message : "Convite para Treinador Principal enviado.");
       setTrainerName("");
       setTrainerEmail("");
+      setTrainerFormError("");
       setShowTrainerForm(false);
       await loadAccounts();
     } catch (createError) {
       console.error("Erro ao criar Treinador Principal:", createError);
-      setError(createError instanceof Error && createError.message !== "Edge Function returned a non-2xx status code"
+      setTrainerFormError(createError instanceof Error && createError.message !== "Edge Function returned a non-2xx status code"
         ? createError.message
-        : "Não foi possível criar a conta de Treinador Principal. Confirma se o email já está associado a outra conta.");
+        : "Não foi possível criar a conta. Confirma se o email já está associado a outra conta e tenta novamente.");
     } finally {
       setBusy(false);
     }
@@ -266,14 +269,17 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
         <div><span className="eyebrow">ADMINISTRAÇÃO PRINCIPAL · CONTAS</span><h2>Gestão de acessos</h2><p>Consulta as contas de todas as áreas e controla o acesso à plataforma.</p></div>
         <div className="staff-heading-actions"><button className="primary-button" onClick={() => { setShowTrainerForm(true); setError(""); }}>+ Criar Treinador Principal</button><button className="secondary-button" onClick={() => void loadAccounts()} disabled={loading}>↻ Atualizar</button></div>
       </div>
-      {showTrainerForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShowTrainerForm(false); }}>
-        <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="create-trainer-title">
-          <div className="modal-heading"><div><span className="eyebrow">NOVO ACESSO DE TREINADOR</span><h2 id="create-trainer-title">Criar Treinador Principal</h2></div><button className="icon-button" onClick={() => setShowTrainerForm(false)} aria-label="Fechar" disabled={busy}>×</button></div>
-          <p>Será criada a conta e a ficha Staff, e enviado um convite por email para definir a palavra-passe.</p>
-          <form onSubmit={(event) => void createTrainerPrincipal(event)}>
-            <label>Nome apresentado *<input value={trainerName} onChange={(event) => setTrainerName(event.target.value)} required maxLength={120} /></label>
-            <label>Email de convite *<input type="email" value={trainerEmail} onChange={(event) => setTrainerEmail(event.target.value)} required maxLength={320} /></label>
-            <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowTrainerForm(false)} disabled={busy}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy ? "A criar…" : "Criar e enviar convite"}</button></div>
+      {showTrainerForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) { setShowTrainerForm(false); setTrainerFormError(""); } }}>
+        <section className="staff-modal trainer-create-modal" role="dialog" aria-modal="true" aria-labelledby="create-trainer-title" aria-describedby="create-trainer-description">
+          <div className="modal-heading"><div><span className="eyebrow">ADMINISTRAÇÃO PRINCIPAL · NOVA CONTA</span><h2 id="create-trainer-title">Criar Treinador Principal</h2></div><button className="icon-button" onClick={() => { setShowTrainerForm(false); setTrainerFormError(""); }} aria-label="Fechar" disabled={busy}>×</button></div>
+          <div className="trainer-form-intro"><span className="trainer-form-icon" aria-hidden="true">✉</span><p id="create-trainer-description">Preenche os dados da pessoa que vai assumir a gestão desportiva da plataforma. A conta e a ficha Staff serão criadas em conjunto.</p></div>
+          <form className="trainer-create-form" onSubmit={(event) => void createTrainerPrincipal(event)} noValidate>
+            <div className="trainer-form-section"><span className="trainer-form-step">01</span><div><h3>Dados de acesso</h3><p>Estes dados identificam a pessoa e para onde será enviado o convite.</p></div></div>
+            <label htmlFor="trainer-display-name">Nome apresentado <span className="required-mark">*</span><input id="trainer-display-name" name="displayName" type="text" autoComplete="name" value={trainerName} onChange={(event) => { setTrainerName(event.target.value); setTrainerFormError(""); }} placeholder="Ex.: Ana Silva" required maxLength={120} /></label>
+            <label htmlFor="trainer-invite-email">Email de acesso <span className="required-mark">*</span><input id="trainer-invite-email" name="email" type="email" inputMode="email" autoComplete="email" value={trainerEmail} onChange={(event) => { setTrainerEmail(event.target.value); setTrainerFormError(""); }} placeholder="nome@exemplo.pt" required maxLength={320} /><small>Utiliza um endereço a que a pessoa tenha acesso. Será enviado para aqui o convite de ativação.</small></label>
+            {trainerFormError && <p className="trainer-form-error" role="alert">{trainerFormError}</p>}
+            <div className="trainer-invite-preview"><span className="trainer-preview-check" aria-hidden="true">✓</span><div><strong>O que acontece a seguir?</strong><p>É criada a conta com o perfil Treinador Principal e a respetiva ficha Staff. A pessoa recebe um email para aceitar o convite e definir a sua palavra-passe.</p></div></div>
+            <div className="modal-actions trainer-form-actions"><button type="button" className="secondary-button" onClick={() => { setShowTrainerForm(false); setTrainerFormError(""); }} disabled={busy}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy ? "A criar conta e a enviar…" : "Criar conta e enviar convite"}</button></div>
           </form>
         </section>
       </div>}
