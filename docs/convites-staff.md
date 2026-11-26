@@ -24,11 +24,21 @@ Não colocar credenciais SMTP, chaves Supabase ou tokens no repositório. As cre
 
 ## Publicação das funções
 
-Com a Supabase CLI ligada ao projeto correto, publicar individualmente:
+Foi criado o workflow manual **Publicar funções Supabase** no GitHub Actions.
+
+1. Na Supabase, criar um Access Token em **Account → Access Tokens**.
+2. No GitHub, abrir **Settings → Secrets and variables → Actions → New repository secret**.
+3. Criar o segredo com o nome `SUPABASE_ACCESS_TOKEN` e colar o token. Não o colocar em ficheiros, mensagens ou commits.
+4. Abrir o separador **Actions**, escolher **Publicar funções Supabase** e carregar em **Run workflow**.
+5. Confirmar que a execução termina com sucesso e que as duas funções aparecem em **Supabase → Edge Functions**.
+
+O workflow publica apenas as funções deste projeto e não executa migrations nem altera a base de dados.
+
+Em alternativa, com a Supabase CLI autenticada localmente e ligada ao projeto correto:
 
 ```powershell
-npx supabase functions deploy invite-staff
-npx supabase functions deploy accept-staff-invite
+npx supabase functions deploy invite-staff --project-ref tuimyjeuykecyxbawwlz
+npx supabase functions deploy accept-staff-invite --project-ref tuimyjeuykecyxbawwlz
 ```
 
 As funções usam as variáveis de ambiente geridas pela plataforma Supabase: `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`. Não criar nem guardar uma cópia destas chaves no frontend.
