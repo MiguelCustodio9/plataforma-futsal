@@ -596,7 +596,23 @@ function AuthGate() {
       if (isStaffInviteFlow) {
         const { error: activationError } = await supabase.functions.invoke("accept-staff-invite", { body: {} });
         if (activationError) {
-          setError("A palavra-passe foi guardada, mas a ativação da conta não foi concluída. Tenta novamente.");
+          let activationMessage = "A ativação não foi concluída. A palavra-passe já ficou guardada.";
+          if (activationError && typeof activationError === "object" && "context" in activationError) {
+            const context = (activationError as { context?: unknown }).context;
+            if (context instanceof Response) {
+              try {
+                const payload = await context.clone().json() as { error?: unknown; diagnostic?: unknown };
+                if (typeof payload.error === "string" && payload.error.trim()) activationMessage = payload.error;
+                if (typeof payload.diagnostic === "string" && payload.diagnostic.trim()) {
+                  activationMessage = `${activationMessage} (diagnóstico: ${payload.diagnostic})`;
+                }
+              } catch {
+                // Mantém a mensagem segura se a resposta não tiver JSON válido.
+              }
+            }
+          }
+          console.error("Falha ao ativar convite Staff:", activationError);
+          setError(activationMessage);
           return;
         }
       }
