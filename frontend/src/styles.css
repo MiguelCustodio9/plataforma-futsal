@@ -207,3 +207,5 @@ button { cursor: pointer; }
 @media(max-width:850px) { .auth-page { grid-template-columns:1fr; } .auth-visual { min-height:260px; padding:23px 25px; } .auth-visual-copy { padding:38px 0 28px; } .auth-visual-copy h1 { max-width:500px; font-size:37px; } .auth-visual-copy p { font-size:12px; } .auth-court-art { width:250px; height:160px; right:-110px; bottom:-20px; } .auth-visual-foot { display:none; } .auth-panel { min-height:calc(100vh - 260px); padding:42px 25px 25px; } }
 @media(max-width:480px) { .auth-visual { min-height:225px; } .auth-visual-copy { padding:28px 0 10px; } .auth-visual-copy h1 { font-size:31px; } .auth-panel { min-height:calc(100vh - 225px); } }
 @media(prefers-reduced-motion:reduce) { .auth-spinner { animation:none; } }
+
+.auth-password-hint { margin:0 0 4px; color:#91ad9b; font-size:10px; line-height:1.6; }
