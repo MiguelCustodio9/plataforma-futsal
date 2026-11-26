@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate } = vi.hoisted(() => ({
   mockProfile: { role: "administrador_principal" },
@@ -160,7 +160,7 @@ describe("plataforma de futsal", () => {
 });
 
 async function waitForDialogToClose() {
-  expect(await screen.findByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 }
 
 describe("definição de palavra-passe", () => {
