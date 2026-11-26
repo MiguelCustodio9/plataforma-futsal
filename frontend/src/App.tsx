@@ -276,12 +276,14 @@ function AuthGate() {
     setProfileLoading(true);
     setProfileError("");
 
-    void supabase
-      .from("profiles")
-      .select("display_name, role, status")
-      .eq("id", session.user.id)
-      .single()
-      .then(({ data, error: queryError }) => {
+    const loadProfile = async () => {
+      try {
+        const { data, error: queryError } = await supabase
+          .from("profiles")
+          .select("display_name, role, status")
+          .eq("id", session.user.id)
+          .single();
+
         if (!mounted) return;
 
         if (queryError || !data) {
@@ -309,17 +311,18 @@ function AuthGate() {
           role: data.role as AppRole,
           status: data.status,
         });
-      })
-      .catch((profileQueryError: unknown) => {
+      } catch (profileQueryError: unknown) {
         console.error("Erro inesperado ao carregar o perfil:", profileQueryError);
         if (mounted) {
           setProfile(null);
           setProfileError("Ocorreu um erro ao carregar o perfil. Tenta novamente.");
         }
-      })
-      .finally(() => {
+      } finally {
         if (mounted) setProfileLoading(false);
-      });
+      }
+    };
+
+    void loadProfile();
 
     return () => {
       mounted = false;
