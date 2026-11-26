@@ -76,7 +76,7 @@ function mapStaffRow(row: StaffDbRow): StaffMember {
 }
 
 type AppRole = "administrador_principal" | "treinador_principal" | "staff" | "jogadora";
-type UserProfile = { displayName: string; role: AppRole; status: string };
+type UserProfile = { id?: string; displayName: string; role: AppRole; status: string };
 
 const roleLabels: Record<AppRole, string> = {
   administrador_principal: "Administrador Principal",
@@ -518,7 +518,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             <footer className="page-footer"><span>Plataforma Futsal</span><span>Área exclusiva do Administrador Principal.</span></footer>
           </div>
         ) : profile.role === "administrador_principal" && activeArea === "Gestão de acessos" ? (
-          <AccessManagement />
+          <AccessManagement currentProfileId={profile.id} />
         ) : profile.role === "administrador_principal" && administratorModules.includes(activeArea) ? (
           <div className="content">
             <section className="welcome-panel">
@@ -708,7 +708,15 @@ function AuthGate() {
           return;
         }
 
+        if (data.status !== "ativo") {
+          await supabase.auth.signOut();
+          setProfile(null);
+          setProfileError("Esta conta não está ativa. Contacta o Administrador Principal ou o responsável pelos acessos.");
+          return;
+        }
+
         setProfile({
+          id: session.user.id,
           displayName: data.display_name,
           role: data.role as AppRole,
           status: data.status,
