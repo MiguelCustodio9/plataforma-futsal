@@ -109,6 +109,7 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
   const [showTrainerForm, setShowTrainerForm] = useState(false);
   const [trainerName, setTrainerName] = useState("");
   const [trainerEmail, setTrainerEmail] = useState("");
+  const [inviteTarget, setInviteTarget] = useState<PlatformAccount | null>(null);
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
@@ -219,6 +220,39 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     }
   };
 
+  const resendTrainerInvite = async () => {
+    if (!inviteTarget) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
+        body: { action: "resend_trainer_invite", targetProfileId: inviteTarget.id },
+      });
+      if (invokeError) {
+        if (invokeError.context instanceof Response) {
+          try {
+            const payload = await invokeError.context.clone().json() as { error?: string };
+            if (payload.error) throw new Error(payload.error);
+          } catch (readError) {
+            if (readError instanceof Error && readError.message !== "Unexpected end of JSON input") throw readError;
+          }
+        }
+        throw invokeError;
+      }
+      setNotice(typeof data?.message === "string" ? data.message : "Novo convite enviado.");
+      setInviteTarget(null);
+      await loadAccounts();
+    } catch (inviteError) {
+      console.error("Erro ao reenviar convite:", inviteError);
+      setError(inviteError instanceof Error && inviteError.message !== "Edge Function returned a non-2xx status code"
+        ? inviteError.message
+        : "Não foi possível reenviar o convite. Verifica o estado da conta e a configuração de email.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const statusLabel = (status: PlatformAccount["status"]) => ({
     ativo: "Ativa",
     convite_pendente: "Convite pendente",
@@ -257,16 +291,21 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
       <section className="staff-table-wrap" aria-label="Contas da plataforma">
         <div className="table-title"><div><h3>Contas registadas</h3><span>{filteredAccounts.length} resultado(s)</span></div></div>
         {loading ? <div className="empty-state"><strong>A carregar contas…</strong></div> : error && accounts.length === 0 ? <div className="empty-state"><strong>{error}</strong><button className="secondary-button" onClick={() => void loadAccounts()}>Tentar novamente</button></div> : filteredAccounts.length === 0 ? <div className="empty-state"><strong>Não foram encontradas contas.</strong><span>Altera os filtros ou a pesquisa.</span></div> : (
-          <div className="staff-list">
+          <div className="staff-list access-list">
+            <div className="staff-row access-row access-table-head" aria-hidden="true">
+              <span>Conta</span><span>Perfil</span><span>Estado</span><span>Último acesso</span><span>Ações</span>
+            </div>
             {filteredAccounts.map((account) => (
-              <article className="staff-row" key={account.id}>
+              <article className="staff-row access-row" key={account.id}>
                 <div className="staff-person"><span className="staff-avatar">{account.display_name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{account.display_name}{account.id === currentProfileId ? " (tu)" : ""}</strong><span>{account.email || "Email indisponível"}</span></div></div>
                 <div className="staff-roles"><span>{roleLabels[account.role]}</span></div>
                 <div><span className={`status-pill status-${statusLabel(account.status).toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{statusLabel(account.status)}</span></div>
-                <div className="staff-actions">
-                  <span className="invite-sent-label"><span className="invite-sent-copy"><strong>Último acesso</strong><small>{account.last_sign_in_at ? new Date(account.last_sign_in_at).toLocaleString("pt-PT") : "Ainda sem sessão"}</small></span></span>
+                <div className="access-last-seen">{account.last_sign_in_at ? new Date(account.last_sign_in_at).toLocaleString("pt-PT") : "Ainda sem sessão"}</div>
+                <div className="staff-actions access-actions">
+                  {account.role === "treinador_principal" && account.status === "convite_pendente" && <button onClick={() => setInviteTarget(account)}>Reenviar convite</button>}
                   {account.id !== currentProfileId && account.status === "ativo" && <button onClick={() => { setSelectedAccount(account); setNextStatus("suspenso"); }}>Suspender</button>}
                   {account.id !== currentProfileId && account.status === "suspenso" && <button onClick={() => { setSelectedAccount(account); setNextStatus("ativo"); }}>Reativar</button>}
+                  {!((account.role === "treinador_principal" && account.status === "convite_pendente") || (account.id !== currentProfileId && ["ativo", "suspenso"].includes(account.status))) && <span className="access-no-action">—</span>}
                 </div>
               </article>
             ))}
@@ -276,6 +315,13 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
       {error && !(loading || accounts.length === 0) && <p className="form-error" role="alert">{error}</p>}
       {notice && <p className="demo-notice" role="status">{notice}</p>}
       <p className="demo-notice">A alteração de estado bloqueia ou repõe o início de sessão. Não altera o papel nem elimina a ficha desportiva ou o histórico da pessoa. A tua própria conta não pode ser suspensa aqui.</p>
+      {inviteTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setInviteTarget(null); }}>
+        <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="resend-trainer-title">
+          <div className="modal-heading"><div><span className="eyebrow">GESTÃO DE CONVITES</span><h2 id="resend-trainer-title">Reenviar convite</h2></div><button className="icon-button" onClick={() => setInviteTarget(null)} aria-label="Fechar" disabled={busy}>×</button></div>
+          <p>Será enviado um novo convite para <strong>{inviteTarget.display_name}</strong> ({inviteTarget.email}). O convite anterior será invalidado e a ficha Staff e a função de Treinador Principal serão preservadas.</p>
+          <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setInviteTarget(null)} disabled={busy}>Cancelar</button><button type="button" className="primary-button" onClick={() => void resendTrainerInvite()} disabled={busy}>{busy ? "A enviar…" : "Confirmar reenvio"}</button></div>
+        </section>
+      </div>}
       {selectedAccount && nextStatus && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) { setSelectedAccount(null); setNextStatus(null); } }}>
         <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="access-action-title">
           <div className="modal-heading"><div><span className="eyebrow">CONFIRMAÇÃO DE SEGURANÇA</span><h2 id="access-action-title">{nextStatus === "suspenso" ? "Suspender conta" : "Reativar conta"}</h2></div><button className="icon-button" onClick={() => { setSelectedAccount(null); setNextStatus(null); }} aria-label="Fechar" disabled={busy}>×</button></div>
