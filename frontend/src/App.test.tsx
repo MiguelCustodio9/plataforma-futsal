@@ -154,7 +154,7 @@ describe("plataforma de futsal", () => {
     expect(within(dialog).getByText(/definir a sua palavra-passe/i)).toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText("Nome apresentado *"), { target: { value: "Nova Treinadora Principal" } });
     fireEvent.change(within(dialog).getByRole("textbox", { name: /Email de acesso/ }), { target: { value: "nova.treinadora@exemplo.pt" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Criar e enviar convite" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Criar conta e enviar convite" }));
     await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", {
       body: { action: "create_trainer_principal", displayName: "Nova Treinadora Principal", email: "nova.treinadora@exemplo.pt" },
     }));
