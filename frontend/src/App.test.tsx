@@ -159,6 +159,30 @@ describe("plataforma de futsal", () => {
     await waitForDialogToClose();
   });
 
+  it("permite reenviar um convite pendente de Treinador Principal", async () => {
+    mockAccessAccounts.push({
+      id: "trainer-pending-1",
+      display_name: "Treinadora Pendente",
+      email: "treinadora@exemplo.pt",
+      role: "treinador_principal",
+      status: "convite_pendente",
+      created_at: "2026-11-26T10:00:00Z",
+      last_sign_in_at: "",
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
+    expect(await screen.findByText("Treinadora Pendente")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reenviar convite" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/convite anterior será invalidado/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar reenvio" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", {
+      body: { action: "resend_trainer_invite", targetProfileId: "trainer-pending-1" },
+    }));
+    await waitForDialogToClose();
+  });
+
   it("permite suspender uma conta a partir da Gestão de acessos com confirmação", async () => {
     mockAccessAccounts.push({
       id: "staff-account-2",
@@ -347,6 +371,19 @@ describe("definição de palavra-passe", () => {
     expect(await screen.findByRole("heading", { name: "Definir palavra-passe" })).toBeInTheDocument();
     expect(screen.getByLabelText("Nova palavra-passe")).toBeInTheDocument();
     expect(screen.getByLabelText("Confirmar palavra-passe")).toBeInTheDocument();
+  });
+
+  it("ativa o perfil de Treinador Principal depois de definir a palavra-passe do convite", async () => {
+    mockProfile.role = "treinador_principal";
+    mockProfile.status = "convite_pendente";
+    window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Definir palavra-passe" });
+    fireEvent.change(screen.getByLabelText("Nova palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.change(screen.getByLabelText("Confirmar palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar palavra-passe" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("accept-staff-invite", { body: {} }));
+    expect(await screen.findByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
   });
 
   it("ativa o perfil Staff depois de definir a palavra-passe do convite", async () => {
