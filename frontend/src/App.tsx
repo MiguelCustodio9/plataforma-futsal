@@ -86,13 +86,13 @@ const roleLabels: Record<AppRole, string> = {
 };
 
 function Dashboard({ profile }: { profile: UserProfile }) {
-  const canManageStaff = profile.role === "administrador_principal" || profile.role === "treinador_principal";
-  const visibleModules = profile.role === "staff"
-    ? modules.filter((module) => module !== "Perfil da jogadora")
-    : profile.role === "jogadora"
-      ? ["O meu perfil", "Os meus treinos", "Os meus jogos", "Biblioteca de vídeos"]
-      : profile.role === "administrador_principal"
-        ? [...modules, ...administratorModules]
+  const canManageStaff = profile.role === "treinador_principal";
+  const visibleModules = profile.role === "administrador_principal"
+    ? administratorModules
+    : profile.role === "staff"
+      ? modules.filter((module) => module !== "Perfil da jogadora")
+      : profile.role === "jogadora"
+        ? ["O meu perfil", "Os meus treinos", "Os meus jogos", "Biblioteca de vídeos"]
         : modules;
   useEffect(() => {
     void testSupabaseConnection();
@@ -147,8 +147,12 @@ function Dashboard({ profile }: { profile: UserProfile }) {
   }, []);
 
   useEffect(() => {
-    void loadStaff();
-  }, [loadStaff]);
+    if (profile.role === "treinador_principal" || profile.role === "staff") {
+      void loadStaff();
+    } else {
+      setStaffLoading(false);
+    }
+  }, [loadStaff, profile.role]);
 
   const filteredStaff = useMemo(() => staff.filter((member) => {
     const matchesQuery = [member.name, member.fullName, member.email, ...member.roles]
@@ -352,32 +356,15 @@ function Dashboard({ profile }: { profile: UserProfile }) {
               <div className="welcome-copy">
                 <span className="eyebrow">ADMINISTRAÇÃO PRINCIPAL</span>
                 <h2>Controlo global da plataforma.</h2>
-                <p>Bem-vindo ao espaço de administração. A partir daqui podes acompanhar a estrutura desportiva e aceder às áreas de gestão. As ferramentas administrativas serão ativadas e testadas por etapas.</p>
+                <p>Bem-vindo ao espaço de administração. A partir daqui podes gerir os acessos e as configurações, acompanhar a segurança e consultar a utilização dos serviços da plataforma.</p>
               </div>
               <div className="court-art" aria-hidden="true"><div className="court-line center-line" /><div className="court-circle" /><div className="court-box court-box-left" /><div className="court-box court-box-right" /></div>
             </section>
-            <div className="section-heading"><div><span className="eyebrow">ACESSO RÁPIDO</span><h2>Áreas do projeto</h2></div><span className="phase-tag">ADMINISTRADOR PRINCIPAL</span></div>
-            <section className="module-grid" aria-label="Acessos de administração">
-              {[
-                { name: "Plantel", description: "Registo e gestão das jogadoras." },
-                { name: "Staff", description: "Elementos, funções e respetivos acessos." },
-                { name: "Competições", description: "Competições e respetiva organização." },
-                { name: "Jogos", description: "Calendário e registo dos jogos." },
-                { name: "Análise", description: "Dados e análise desportiva." },
-                { name: "Treinos", description: "Planeamento e acompanhamento dos treinos." },
-                { name: "Biblioteca de vídeos", description: "Vídeos táticos e de jogos." },
-                { name: "Perfil da jogadora", description: "Acompanhamento individual das atletas." },
-              ].map((item, index) => (
-                <button type="button" className="module-card admin-shortcut" key={item.name} onClick={() => setActiveArea(item.name)}>
-                  <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item.name}</h3><p>{item.description}</p><span className="module-state">{item.name === "Staff" ? "Disponível" : "A implementar"}</span>
-                </button>
-              ))}
-            </section>
-            <div className="section-heading"><div><span className="eyebrow">FERRAMENTAS EXCLUSIVAS</span><h2>Administração e controlo</h2></div></div>
+            <div className="section-heading"><div><span className="eyebrow">ADMINISTRAÇÃO</span><h2>Ferramentas exclusivas</h2></div><span className="phase-tag">ADMINISTRADOR PRINCIPAL</span></div>
             <section className="module-grid" aria-label="Ferramentas exclusivas do administrador">
               {administratorModules.map((item, index) => (
                 <button type="button" className="module-card admin-shortcut" key={item} onClick={() => setActiveArea(item)}>
-                  <span className="module-number">{String(index + 9).padStart(2, "0")}</span><h3>{item}</h3><p>{item === "Gestão de acessos" ? "Contas, convites, funções e permissões." : item === "Configurações da plataforma" ? "Identidade do clube, equipa, época e preferências." : item === "Segurança e atividade" ? "Sessões, acessos e registos de atividade." : "Consumo e limites dos serviços utilizados."}</p><span className="module-state">Planeado</span>
+                  <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item}</h3><p>{item === "Gestão de acessos" ? "Contas, convites, funções e permissões." : item === "Configurações da plataforma" ? "Identidade do clube, equipa, época e preferências." : item === "Segurança e atividade" ? "Sessões, acessos e registos de atividade." : "Consumo e limites dos serviços utilizados."}</p><span className="module-state">Planeado</span>
                 </button>
               ))}
             </section>
