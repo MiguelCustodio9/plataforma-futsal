@@ -92,7 +92,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState({ name: "", fullName: "", email: "", birthDate: "", roles: ["Treinador Adjunto"] as string[] });
+  const [form, setForm] = useState({ name: "", fullName: "", email: "", birthDate: "", roles: [] as string[] });
 
   const loadStaff = useCallback(async () => {
     setStaffLoading(true);
@@ -126,7 +126,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 
   const openNewForm = () => {
     setEditingId(null);
-    setForm({ name: "", fullName: "", email: "", birthDate: "", roles: ["Treinador Adjunto"] });
+    setForm({ name: "", fullName: "", email: "", birthDate: "", roles: [] });
     setFormError("");
     setShowForm(true);
   };
