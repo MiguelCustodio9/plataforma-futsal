@@ -39,6 +39,7 @@ const roleLabels: Record<AppRole, string> = {
 };
 
 function Dashboard({ profile }: { profile: UserProfile }) {
+  const canManageStaff = profile.role === "administrador_principal" || profile.role === "treinador_principal";
   useEffect(() => {
     void testSupabaseConnection();
   }, []);
@@ -155,7 +156,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           <div className="content staff-content">
             <div className="staff-heading">
               <div><span className="eyebrow">MÓDULO 01 · EQUIPA TÉCNICA</span><h2>Staff</h2><p>Gere os elementos da equipa técnica, as suas funções e o estado dos acessos.</p></div>
-              <button className="primary-button" onClick={openNewForm}>＋ Adicionar elemento</button>
+              {canManageStaff && <button className="primary-button" onClick={openNewForm}>＋ Adicionar elemento</button>}
             </div>
 
             <section className="staff-stats" aria-label="Resumo do Staff">
@@ -180,13 +181,13 @@ function Dashboard({ profile }: { profile: UserProfile }) {
                       <div className="staff-person"><span className="staff-avatar">{member.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{member.name}</strong><span>{member.email}</span></div></div>
                       <div className="staff-roles">{member.roles.map((role) => <span key={role}>{role}</span>)}</div>
                       <div><span className={`status-pill status-${member.status.toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{member.status}</span></div>
-                      <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Ativar (demonstração)</button> : <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button>}</div>
+                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Ativar (demonstração)</button> : <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
                     </article>
                   ))}
                 </div>
               )}
             </section>
-            <p className="demo-notice">Modo de demonstração: os registos ficam apenas no estado desta sessão. Convites por email, autenticação e persistência serão ligados ao backend numa etapa posterior.</p>
+            {canManageStaff ? <p className="demo-notice">Modo de demonstração: os registos ficam apenas no estado desta sessão. Convites por email, autenticação e persistência serão ligados ao backend numa etapa posterior.</p> : <p className="demo-notice">Apenas o Administrador Principal e o Treinador Principal podem adicionar, editar, suspender ou reativar elementos do Staff.</p>}
           </div>
         ) : (
           <div className="content">
@@ -466,14 +467,14 @@ function AuthGate() {
     );
   }
 
-  if (session && profile && profile.role !== "administrador_principal") {
+  if (session && profile && !["administrador_principal", "treinador_principal", "staff", "jogadora"].includes(profile.role)) {
     return (
       <main className="auth-page">
         <section className="auth-panel">
           <div className="auth-form-wrap">
             <span className="eyebrow">ACESSO RESTRITO</span>
             <h2>Sem permissões para este painel</h2>
-            <p className="auth-intro">A conta está autenticada como {roleLabels[profile.role]}, mas este painel está reservado ao Administrador Principal.</p>
+            <p className="auth-intro">Esta conta não tem um papel autorizado para aceder à plataforma.</p>
             <button className="auth-submit" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button>
           </div>
         </section>
