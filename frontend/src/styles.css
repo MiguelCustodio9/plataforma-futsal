@@ -209,3 +209,10 @@ button { cursor: pointer; }
 @media(prefers-reduced-motion:reduce) { .auth-spinner { animation:none; } }
 
 .auth-password-hint { margin:0 0 4px; color:#91ad9b; font-size:10px; line-height:1.6; }
+
+
+/* Identificação do utilizador autenticado */
+.account-identity { display:grid; gap:3px; min-width:0; text-align:right; }
+.account-identity strong { overflow:hidden; color:#f2fff8; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.account-identity span { color:var(--muted); font-size:9px; }
+@media(max-width:760px) { .account-identity { display:none; } }
