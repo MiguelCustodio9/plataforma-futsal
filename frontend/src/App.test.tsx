@@ -87,11 +87,43 @@ afterEach(() => {
 });
 
 describe("plataforma de futsal", () => {
-  it("apresenta o centro de controlo e as áreas planeadas", async () => {
+  it("apresenta ao Administrador apenas o painel inicial e as quatro áreas exclusivas", async () => {
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Áreas do projeto" })).toBeInTheDocument();
-    expect(screen.getAllByText("Biblioteca de vídeos")).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Ferramentas exclusivas" })).toBeInTheDocument();
+    const navigation = within(screen.getByRole("navigation"));
+    expect(navigation.getByRole("button", { name: /Painel inicial/ })).toBeInTheDocument();
+    for (const item of ["Gestão de acessos", "Configurações da plataforma", "Segurança e atividade", "Utilização e limites"]) {
+      expect(navigation.getByRole("button", { name: new RegExp(item) })).toBeInTheDocument();
+    }
+    for (const item of ["Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos", "Biblioteca de vídeos", "Perfil da jogadora"]) {
+      expect(navigation.queryByRole("button", { name: new RegExp(item) })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole("heading", { name: "Áreas do projeto" })).not.toBeInTheDocument();
+  });
+
+
+  it("mostra os módulos desportivos ao Treinador Principal, sem ferramentas exclusivas de administração", async () => {
+    mockProfile.role = "treinador_principal";
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    const navigation = within(screen.getByRole("navigation"));
+    for (const item of ["Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos", "Biblioteca de vídeos", "Perfil da jogadora"]) {
+      expect(navigation.getByRole("button", { name: new RegExp(item) })).toBeInTheDocument();
+    }
+    expect(navigation.queryByRole("button", { name: /Gestão de acessos/ })).not.toBeInTheDocument();
+  });
+
+  it("mostra ao Staff os módulos desportivos sem Perfil da jogadora nem ferramentas administrativas", async () => {
+    mockProfile.role = "staff";
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    const navigation = within(screen.getByRole("navigation"));
+    for (const item of ["Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos", "Biblioteca de vídeos"]) {
+      expect(navigation.getByRole("button", { name: new RegExp(item) })).toBeInTheDocument();
+    }
+    expect(navigation.queryByRole("button", { name: /Perfil da jogadora/ })).not.toBeInTheDocument();
+    expect(navigation.queryByRole("button", { name: /Gestão de acessos/ })).not.toBeInTheDocument();
   });
 
   it("apresenta a opção para terminar uma sessão autenticada", async () => {
