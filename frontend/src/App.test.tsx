@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+const { mockProfile } = vi.hoisted(() => ({ mockProfile: { role: "administrador_principal" } }));
 vi.mock("./lib/supabase", () => ({
   supabase: {
     from: vi.fn(() => ({
@@ -8,7 +9,7 @@ vi.mock("./lib/supabase", () => ({
           single: vi.fn().mockResolvedValue({
             data: {
               display_name: "Administrador de Teste",
-              role: "administrador_principal",
+              role: mockProfile.role,
               status: "ativo",
             },
             error: null,
@@ -35,6 +36,7 @@ afterEach(() => {
   cleanup();
   window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
   vi.clearAllMocks();
+  mockProfile.role = "administrador_principal";
 });
 
 describe("plataforma de futsal", () => {
@@ -75,6 +77,25 @@ describe("plataforma de futsal", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Guardar elemento" }));
     expect(screen.getByText("Nova treinadora")).toBeInTheDocument();
     expect(screen.getByText("nova@exemplo.pt")).toBeInTheDocument();
+  });
+
+  it("permite ao Treinador Principal gerir o Staff", async () => {
+    mockProfile.role = "treinador_principal";
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    expect(screen.getByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
+  });
+
+  it("não permite ao Staff gerir elementos do Staff", async () => {
+    mockProfile.role = "staff";
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    expect(screen.queryByRole("button", { name: /Adicionar elemento/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Apenas o Administrador Principal e o Treinador Principal/)).toBeInTheDocument();
   });
 
   it("impede registar o mesmo email duas vezes", async () => {
