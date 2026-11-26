@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase, testSupabaseConnection } from "./lib/supabase";
 
 const modules = [
@@ -7,13 +7,13 @@ const modules = [
 ];
 
 const staffRoles = [
-  "Treinador Principal", "Estagiário", "Adjunto", "Treinador de GR",
-  "Delegado", "Presidente", "Diretor", "Fisioterapeuta", "Massagista", "Enfermeira",
+  "Treinador Principal", "Treinador Estagiário", "Treinador Adjunto", "Treinador de GR",
+  "Delegado", "Presidente", "Diretor", "Fisioterapeuta", "Massagista", "Enfermeira", "Estagiário",
 ];
 
-type StaffStatus = "Ativo" | "Convite pendente" | "Suspenso" | "Arquivado";
+type StaffStatus = "Ativo" | "Convite pendente" | "Convite expirado" | "Suspenso" | "Arquivado";
 type StaffMember = {
-  id: number;
+  id: string;
   name: string;
   fullName: string;
   email: string;
@@ -23,10 +23,46 @@ type StaffMember = {
   createdAt: string;
 };
 
-const initialStaff: StaffMember[] = [
-  { id: 1, name: "Exemplo de treinador", fullName: "Exemplo de treinador", email: "treinador@exemplo.pt", birthDate: "", roles: ["Treinador Principal"], status: "Ativo", createdAt: "2026-11-25" },
-  { id: 2, name: "Exemplo de adjunto", fullName: "Exemplo de adjunto", email: "adjunto@exemplo.pt", birthDate: "", roles: ["Adjunto", "Treinador de GR"], status: "Convite pendente", createdAt: "2026-11-25" },
-];
+type StaffDbRow = {
+  id: string;
+  name: string;
+  full_name: string;
+  email: string;
+  birth_date: string | null;
+  status: "pendente" | "convite_enviado" | "ativo" | "suspenso" | "convite_expirado" | "arquivado";
+  created_at: string;
+  staff_member_roles: { role_name: string }[] | null;
+};
+
+const statusFromDatabase: Record<StaffDbRow["status"], StaffStatus> = {
+  pendente: "Convite pendente",
+  convite_enviado: "Convite pendente",
+  ativo: "Ativo",
+  suspenso: "Suspenso",
+  convite_expirado: "Convite expirado",
+  arquivado: "Arquivado",
+};
+
+const statusToDatabase: Record<StaffStatus, StaffDbRow["status"]> = {
+  "Ativo": "ativo",
+  "Convite pendente": "pendente",
+  "Convite expirado": "convite_expirado",
+  "Suspenso": "suspenso",
+  "Arquivado": "arquivado",
+};
+
+function mapStaffRow(row: StaffDbRow): StaffMember {
+  return {
+    id: row.id,
+    name: row.name,
+    fullName: row.full_name,
+    email: row.email,
+    birthDate: row.birth_date ?? "",
+    roles: (row.staff_member_roles ?? []).map((role) => role.role_name),
+    status: statusFromDatabase[row.status],
+    createdAt: row.created_at.slice(0, 10),
+  };
+}
 
 type AppRole = "administrador_principal" | "treinador_principal" | "staff" | "jogadora";
 type UserProfile = { displayName: string; role: AppRole; status: string };
@@ -46,14 +82,39 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 
 
   const [activeArea, setActiveArea] = useState("Painel inicial");
-  const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(true);
+  const [staffError, setStaffError] = useState("");
+  const [savingStaff, setSavingStaff] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [roleFilter, setRoleFilter] = useState("Todas");
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState({ name: "", fullName: "", email: "", birthDate: "", roles: ["Adjunto"] as string[] });
+  const [form, setForm] = useState({ name: "", fullName: "", email: "", birthDate: "", roles: ["Treinador Adjunto"] as string[] });
+
+  const loadStaff = useCallback(async () => {
+    setStaffLoading(true);
+    setStaffError("");
+    try {
+      const { data, error } = await supabase
+        .from("staff_members")
+        .select("id, name, full_name, email, birth_date, status, created_at, staff_member_roles(role_name)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setStaff(((data ?? []) as StaffDbRow[]).map(mapStaffRow));
+    } catch (error) {
+      console.error("Erro ao carregar Staff:", error);
+      setStaffError("Não foi possível carregar os elementos do Staff. Verifica a ligação e as permissões e tenta novamente.");
+    } finally {
+      setStaffLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStaff();
+  }, [loadStaff]);
 
   const filteredStaff = useMemo(() => staff.filter((member) => {
     const matchesQuery = [member.name, member.fullName, member.email, ...member.roles]
@@ -65,7 +126,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 
   const openNewForm = () => {
     setEditingId(null);
-    setForm({ name: "", fullName: "", email: "", birthDate: "", roles: ["Adjunto"] });
+    setForm({ name: "", fullName: "", email: "", birthDate: "", roles: ["Treinador Adjunto"] });
     setFormError("");
     setShowForm(true);
   };
@@ -77,14 +138,16 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     setShowForm(true);
   };
 
-  const saveStaff = (event: FormEvent<HTMLFormElement>) => {
+  const saveStaff = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const email = form.email.trim().toLocaleLowerCase("pt-PT");
-    if (!form.name.trim() || !email || form.roles.length === 0) {
+    const name = form.name.trim();
+    const fullName = form.fullName.trim() || name;
+    if (!name || !email || form.roles.length === 0) {
       setFormError("Preenche o nome, o email e pelo menos uma função.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
       setFormError("Indica um endereço de email válido.");
       return;
     }
@@ -92,27 +155,60 @@ function Dashboard({ profile }: { profile: UserProfile }) {
       setFormError("Já existe um registo de Staff com este email.");
       return;
     }
-    if (editingId !== null) {
-      setStaff((current) => current.map((member) => member.id === editingId
-        ? { ...member, name: form.name.trim(), fullName: form.fullName.trim() || form.name.trim(), email, birthDate: form.birthDate, roles: form.roles }
-        : member));
-    } else {
-      setStaff((current) => [...current, {
-        id: Math.max(0, ...current.map((member) => member.id)) + 1,
-        name: form.name.trim(),
-        fullName: form.fullName.trim() || form.name.trim(),
-        email,
-        birthDate: form.birthDate,
-        roles: form.roles,
-        status: "Convite pendente",
-        createdAt: new Date().toISOString().slice(0, 10),
-      }]);
+
+    setSavingStaff(true);
+    setFormError("");
+    try {
+      if (editingId) {
+        const existing = staff.find((member) => member.id === editingId);
+        const { error: updateError } = await supabase.from("staff_members").update({
+          name, full_name: fullName, email, birth_date: form.birthDate || null,
+        }).eq("id", editingId);
+        if (updateError) throw updateError;
+
+        const removedRoles = (existing?.roles ?? []).filter((role) => !form.roles.includes(role));
+        const addedRoles = form.roles.filter((role) => !(existing?.roles ?? []).includes(role));
+        if (removedRoles.length) {
+          const { error } = await supabase.from("staff_member_roles").delete()
+            .eq("staff_member_id", editingId).in("role_name", removedRoles);
+          if (error) throw error;
+        }
+        if (addedRoles.length) {
+          const { error } = await supabase.from("staff_member_roles").insert(
+            addedRoles.map((role_name) => ({ staff_member_id: editingId, role_name })),
+          );
+          if (error) throw error;
+        }
+      } else {
+        const { data, error: insertError } = await supabase.from("staff_members").insert({
+          name, full_name: fullName, email, birth_date: form.birthDate || null, status: "pendente",
+        }).select("id").single();
+        if (insertError || !data) throw insertError ?? new Error("Não foi possível obter o registo criado.");
+        const { error: rolesError } = await supabase.from("staff_member_roles").insert(
+          form.roles.map((role_name) => ({ staff_member_id: data.id, role_name })),
+        );
+        if (rolesError) throw rolesError;
+      }
+      await loadStaff();
+      setShowForm(false);
+    } catch (error) {
+      console.error("Erro ao guardar elemento de Staff:", error);
+      setFormError("Não foi possível guardar as alterações. Confirma se o email já existe e se tens permissões para gerir o Staff.");
+    } finally {
+      setSavingStaff(false);
     }
-    setShowForm(false);
   };
 
-  const changeStatus = (id: number, status: StaffStatus) => {
-    setStaff((current) => current.map((member) => member.id === id ? { ...member, status } : member));
+  const changeStatus = async (id: string, status: StaffStatus) => {
+    setStaffError("");
+    const { error } = await supabase.from("staff_members")
+      .update({ status: statusToDatabase[status] }).eq("id", id);
+    if (error) {
+      console.error("Erro ao alterar estado do Staff:", error);
+      setStaffError("Não foi possível alterar o estado deste elemento.");
+      return;
+    }
+    await loadStaff();
   };
 
   const toggleRole = (role: string) => {
@@ -168,26 +264,26 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 
             <section className="staff-toolbar" aria-label="Pesquisa e filtros">
               <label className="search-field"><span>Pesquisar</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome, email ou função..." /></label>
-              <label><span>Estado</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>Todos</option><option>Ativo</option><option>Convite pendente</option><option>Suspenso</option><option>Arquivado</option></select></label>
+              <label><span>Estado</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>Todos</option><option>Ativo</option><option>Convite pendente</option><option>Convite expirado</option><option>Suspenso</option><option>Arquivado</option></select></label>
               <label><span>Função</span><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option value="Todas">Todas</option>{staffRoles.map((role) => <option key={role}>{role}</option>)}</select></label>
             </section>
 
             <section className="staff-table-wrap" aria-label="Lista de Staff">
               <div className="table-title"><div><h3>Elementos registados</h3><span>{filteredStaff.length} resultado(s)</span></div></div>
-              {filteredStaff.length === 0 ? <div className="empty-state"><strong>Não foram encontrados elementos.</strong><span>Altera os filtros ou adiciona um novo elemento ao Staff.</span></div> : (
+              {staffLoading ? <div className="empty-state"><strong>A carregar elementos do Staff…</strong></div> : staffError ? <div className="empty-state"><strong>{staffError}</strong><button className="secondary-button" onClick={() => void loadStaff()}>Tentar novamente</button></div> : filteredStaff.length === 0 ? <div className="empty-state"><strong>Não foram encontrados elementos.</strong><span>Altera os filtros ou adiciona um novo elemento ao Staff.</span></div> : (
                 <div className="staff-list">
                   {filteredStaff.map((member) => (
                     <article className="staff-row" key={member.id}>
                       <div className="staff-person"><span className="staff-avatar">{member.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{member.name}</strong><span>{member.email}</span></div></div>
                       <div className="staff-roles">{member.roles.map((role) => <span key={role}>{role}</span>)}</div>
                       <div><span className={`status-pill status-${member.status.toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{member.status}</span></div>
-                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Ativar (demonstração)</button> : <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
+                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => void changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Ativar</button> : <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
                     </article>
                   ))}
                 </div>
               )}
             </section>
-            {canManageStaff ? <p className="demo-notice">Modo de demonstração: os registos ficam apenas no estado desta sessão. Convites por email, autenticação e persistência serão ligados ao backend numa etapa posterior.</p> : <p className="demo-notice">Apenas o Administrador Principal e o Treinador Principal podem adicionar, editar, suspender ou reativar elementos do Staff.</p>}
+            {canManageStaff ? <p className="demo-notice">Os registos e as funções são guardados na base de dados da plataforma. O envio de convites por email será ativado numa etapa posterior.</p> : <p className="demo-notice">Apenas o Administrador Principal e o Treinador Principal podem adicionar, editar, suspender ou reativar elementos do Staff.</p>}{staffError && !staffLoading && <p className="form-error" role="alert">{staffError}</p>}
           </div>
         ) : (
           <div className="content">
@@ -211,7 +307,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             </div>
             <fieldset className="role-picker"><legend>Funções permanentes *</legend><div>{staffRoles.map((role) => <label key={role}><input type="checkbox" checked={form.roles.includes(role)} onChange={() => toggleRole(role)} />{role}</label>)}</div></fieldset>
             {formError && <p className="form-error" role="alert">{formError}</p>}
-            <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button><button type="submit" className="primary-button">Guardar elemento</button></div>
+            <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button><button type="submit" className="primary-button" disabled={savingStaff}>{savingStaff ? "A guardar…" : "Guardar elemento"}</button></div>
           </form>
         </section>
       </div>}
