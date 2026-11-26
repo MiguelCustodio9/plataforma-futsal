@@ -219,8 +219,13 @@ function Dashboard({ profile }: { profile: UserProfile }) {
         const context = (error as { context?: unknown }).context;
         if (context instanceof Response) {
           try {
-            const payload = await context.clone().json() as { error?: unknown };
-            if (typeof payload.error === "string" && payload.error.trim()) message = payload.error;
+            const payload = await context.clone().json() as { error?: unknown; diagnostic?: unknown };
+            if (typeof payload.error === "string" && payload.error.trim()) {
+              message = payload.error;
+            }
+            if (typeof payload.diagnostic === "string" && payload.diagnostic.trim()) {
+              message = `${message} (diagnóstico: ${payload.diagnostic})`;
+            }
           } catch {
             // Mantém a mensagem genérica se a resposta não tiver JSON válido.
           }
