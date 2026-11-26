@@ -1,22 +1,53 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-const { mockProfile } = vi.hoisted(() => ({ mockProfile: { role: "administrador_principal" } }));
+
+const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate } = vi.hoisted(() => ({
+  mockProfile: { role: "administrador_principal" },
+  mockStaffOrder: vi.fn().mockResolvedValue({ data: [], error: null }),
+  mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
+  mockRoleInsert: vi.fn().mockResolvedValue({ error: null }),
+  mockStaffUpdate: vi.fn().mockResolvedValue({ error: null }),
+}));
+
 vi.mock("./lib/supabase", () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              display_name: "Administrador de Teste",
-              role: mockProfile.role,
-              status: "ativo",
-            },
-            error: null,
-          }),
+    from: vi.fn((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  display_name: "Administrador de Teste",
+                  role: mockProfile.role,
+                  status: "ativo",
+                },
+                error: null,
+              }),
+            })),
+          })),
+        };
+      }
+      if (table === "staff_members") {
+        return {
+          select: vi.fn(() => ({ order: mockStaffOrder })),
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              single: mockStaffInsert,
+            })),
+          })),
+          update: vi.fn(() => ({ eq: mockStaffUpdate })),
+        };
+      }
+      return {
+        insert: mockRoleInsert,
+        delete: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            in: vi.fn().mockResolvedValue({ error: null }),
+          })),
         })),
-      })),
-    })),
+      };
+    }),
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "test-user" } } }, error: null }),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
@@ -37,6 +68,10 @@ afterEach(() => {
   window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
   vi.clearAllMocks();
   mockProfile.role = "administrador_principal";
+  mockStaffOrder.mockResolvedValue({ data: [], error: null });
+  mockStaffInsert.mockResolvedValue({ data: { id: "staff-123" }, error: null });
+  mockRoleInsert.mockResolvedValue({ error: null });
+  mockStaffUpdate.mockResolvedValue({ error: null });
 });
 
 describe("plataforma de futsal", () => {
@@ -52,31 +87,31 @@ describe("plataforma de futsal", () => {
     expect(await screen.findByRole("button", { name: "Terminar sessão" })).toBeInTheDocument();
   });
 
-  it("abre a área Staff e apresenta os registos", async () => {
+  it("abre a área Staff e carrega a lista persistida", async () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
-    expect(screen.getByRole("heading", { name: "Gestão de Staff" })).toBeInTheDocument();
-    expect(screen.getByText("Exemplo de treinador")).toBeInTheDocument();
-    expect(
-      screen.getByText("Convite pendente", {
-      selector: "span.status-pill",
-    })
-).toBeInTheDocument();
+    expect(await screen.findByText("Não foram encontrados elementos.")).toBeInTheDocument();
+    expect(supabase.from).toHaveBeenCalledWith("staff_members");
   });
 
-  it("permite adicionar um elemento de Staff em modo de demonstração", async () => {
+  it("guarda um novo elemento e as respetivas funções no Supabase", async () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    await screen.findByText("Não foram encontrados elementos.");
     fireEvent.click(screen.getByRole("button", { name: /Adicionar elemento/ }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Nome apresentado *"), { target: { value: "Nova treinadora" } });
     fireEvent.change(within(dialog).getByLabelText("Email de convite *"), { target: { value: "nova@exemplo.pt" } });
     fireEvent.click(within(dialog).getByLabelText("Treinador Principal"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Guardar elemento" }));
-    expect(screen.getByText("Nova treinadora")).toBeInTheDocument();
-    expect(screen.getByText("nova@exemplo.pt")).toBeInTheDocument();
+    await waitForDialogToClose();
+    expect(mockStaffInsert).toHaveBeenCalled();
+    expect(mockRoleInsert).toHaveBeenCalledWith([
+      { staff_member_id: "staff-123", role_name: "Treinador Adjunto" },
+      { staff_member_id: "staff-123", role_name: "Treinador Principal" },
+    ]);
   });
 
   it("permite ao Treinador Principal gerir o Staff", async () => {
@@ -84,8 +119,7 @@ describe("plataforma de futsal", () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
-    expect(screen.getByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
+    expect(await screen.findByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
   });
 
   it("não permite ao Staff gerir elementos do Staff", async () => {
@@ -98,10 +132,24 @@ describe("plataforma de futsal", () => {
     expect(screen.getByText(/Apenas o Administrador Principal e o Treinador Principal/)).toBeInTheDocument();
   });
 
-  it("impede registar o mesmo email duas vezes", async () => {
+  it("impede registar um email que já existe na base de dados", async () => {
+    mockStaffOrder.mockResolvedValueOnce({
+      data: [{
+        id: "existing-1",
+        name: "Treinador existente",
+        full_name: "Treinador existente",
+        email: "treinador@exemplo.pt",
+        birth_date: null,
+        status: "ativo",
+        created_at: "2026-11-25T10:00:00Z",
+        staff_member_roles: [{ role_name: "Treinador Principal" }],
+      }],
+      error: null,
+    });
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    expect(await screen.findByText("Treinador existente")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Adicionar elemento/ }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Nome apresentado *"), { target: { value: "Duplicado" } });
@@ -111,6 +159,9 @@ describe("plataforma de futsal", () => {
   });
 });
 
+async function waitForDialogToClose() {
+  expect(await screen.findByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
+}
 
 describe("definição de palavra-passe", () => {
   it("apresenta o formulário quando a pessoa abre um convite", async () => {
