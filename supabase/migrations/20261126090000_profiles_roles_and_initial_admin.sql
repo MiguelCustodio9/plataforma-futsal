@@ -7,8 +7,7 @@ begin
     'staff',
     'jogadora'
   );
-exception
-  when duplicate_object then null;
+exception when duplicate_object then null;
 end
 $$;
 
@@ -20,8 +19,7 @@ begin
     'suspenso',
     'arquivado'
   );
-exception
-  when duplicate_object then null;
+exception when duplicate_object then null;
 end
 $$;
 
@@ -36,7 +34,6 @@ create table if not exists public.profiles (
 
 create index if not exists profiles_role_idx on public.profiles(role);
 create index if not exists profiles_status_idx on public.profiles(status);
-
 alter table public.profiles enable row level security;
 
 create or replace function public.profiles_set_updated_at()
@@ -55,7 +52,6 @@ create trigger profiles_set_updated_at
 before update on public.profiles
 for each row execute function public.profiles_set_updated_at();
 
--- Função de autorização sem recursão nas políticas RLS.
 create or replace function public.current_user_has_role(required_role public.app_role)
 returns boolean
 language sql
@@ -64,8 +60,7 @@ security definer
 set search_path = ''
 as $$
   select exists (
-    select 1
-    from public.profiles p
+    select 1 from public.profiles p
     where p.id = (select auth.uid())
       and p.role = required_role
       and p.status = 'ativo'::public.account_status
@@ -77,33 +72,32 @@ grant execute on function public.current_user_has_role(public.app_role) to authe
 
 drop policy if exists "profiles_select_own_or_admin" on public.profiles;
 create policy "profiles_select_own_or_admin"
-on public.profiles
-for select
-to authenticated
+on public.profiles for select to authenticated
 using (
   id = (select auth.uid())
   or public.current_user_has_role('administrador_principal'::public.app_role)
 );
 
--- Só o próprio utilizador pode alterar o nome apresentado. O papel e o estado
--- não são concedidos para atualização pelo cliente.
 revoke all on table public.profiles from public, anon, authenticated;
 grant select on table public.profiles to authenticated;
 grant update (display_name) on table public.profiles to authenticated;
 
 drop policy if exists "profiles_update_own_display_name" on public.profiles;
 create policy "profiles_update_own_display_name"
-on public.profiles
-for update
-to authenticated
+on public.profiles for update to authenticated
 using (id = (select auth.uid()))
 with check (id = (select auth.uid()));
 
--- Estado de utilização única do bootstrap. Sem acesso direto pelo cliente.
 create table if not exists public.initial_admin_bootstrap (
   singleton boolean primary key default true check (singleton),
   consumed_at timestamptz,
-  created_at timestamptz not null default now()
+  reserved_at timestamptz,
+  reservation_token uuid,
+  created_at timestamptz not null default now(),
+  constraint initial_admin_reservation_pair check (
+    (reserved_at is null and reservation_token is null)
+    or (reserved_at is not null and reservation_token is not null)
+  )
 );
 
 insert into public.initial_admin_bootstrap(singleton)
@@ -113,8 +107,51 @@ on conflict (singleton) do nothing;
 alter table public.initial_admin_bootstrap enable row level security;
 revoke all on table public.initial_admin_bootstrap from public, anon, authenticated;
 
--- Só a Edge Function, através da service role, pode atribuir este papel.
-create or replace function public.bootstrap_first_admin(
+-- Reserva o bootstrap antes de enviar o convite. A reserva expira após 15 minutos.
+create or replace function public.reserve_initial_admin_bootstrap()
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_consumed_at timestamptz;
+  v_reserved_at timestamptz;
+  v_token uuid := gen_random_uuid();
+begin
+  perform pg_advisory_xact_lock(hashtextextended('platform-first-admin-bootstrap', 0));
+
+  select consumed_at, reserved_at
+    into v_consumed_at, v_reserved_at
+    from public.initial_admin_bootstrap
+   where singleton = true
+   for update;
+
+  if v_consumed_at is not null then
+    raise exception 'bootstrap already consumed';
+  end if;
+
+  if v_reserved_at is not null and v_reserved_at > now() - interval '15 minutes' then
+    raise exception 'bootstrap currently reserved';
+  end if;
+
+  if exists (
+    select 1 from public.profiles
+    where role = 'administrador_principal'::public.app_role
+  ) then
+    raise exception 'initial administrator already exists';
+  end if;
+
+  update public.initial_admin_bootstrap
+     set reserved_at = now(), reservation_token = v_token
+   where singleton = true;
+
+  return v_token;
+end;
+$$;
+
+create or replace function public.complete_initial_admin_bootstrap(
+  p_reservation_token uuid,
   p_user_id uuid,
   p_display_name text
 )
@@ -123,25 +160,25 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  v_consumed_at timestamptz;
 begin
-  if p_user_id is null or p_display_name is null
+  if p_reservation_token is null or p_user_id is null
+     or p_display_name is null
      or length(trim(p_display_name)) not between 1 and 120 then
     raise exception 'invalid bootstrap input';
   end if;
 
-  -- Serializa chamadas concorrentes; apenas uma poderá concluir o bootstrap.
   perform pg_advisory_xact_lock(hashtextextended('platform-first-admin-bootstrap', 0));
 
-  select consumed_at
-    into v_consumed_at
+  perform 1
     from public.initial_admin_bootstrap
    where singleton = true
+     and consumed_at is null
+     and reservation_token = p_reservation_token
+     and reserved_at > now() - interval '15 minutes'
    for update;
 
-  if v_consumed_at is not null then
-    raise exception 'bootstrap already consumed';
+  if not found then
+    raise exception 'bootstrap reservation invalid or expired';
   end if;
 
   if exists (
@@ -160,15 +197,34 @@ begin
   );
 
   update public.initial_admin_bootstrap
-     set consumed_at = now()
+     set consumed_at = now(), reserved_at = null, reservation_token = null
    where singleton = true
-     and consumed_at is null;
+     and reservation_token = p_reservation_token;
 
   if not found then
-    raise exception 'bootstrap already consumed';
+    raise exception 'bootstrap reservation lost';
   end if;
 end;
 $$;
 
-revoke all on function public.bootstrap_first_admin(uuid, text) from public, anon, authenticated;
-grant execute on function public.bootstrap_first_admin(uuid, text) to service_role;
+create or replace function public.release_initial_admin_bootstrap(p_reservation_token uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.initial_admin_bootstrap
+     set reserved_at = null, reservation_token = null
+   where singleton = true
+     and consumed_at is null
+     and reservation_token = p_reservation_token;
+end;
+$$;
+
+revoke all on function public.reserve_initial_admin_bootstrap() from public, anon, authenticated;
+revoke all on function public.complete_initial_admin_bootstrap(uuid, uuid, text) from public, anon, authenticated;
+revoke all on function public.release_initial_admin_bootstrap(uuid) from public, anon, authenticated;
+grant execute on function public.reserve_initial_admin_bootstrap() to service_role;
+grant execute on function public.complete_initial_admin_bootstrap(uuid, uuid, text) to service_role;
+grant execute on function public.release_initial_admin_bootstrap(uuid) to service_role;
