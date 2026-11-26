@@ -383,6 +383,18 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             </section>
             <footer className="page-footer"><span>Plataforma Futsal</span><span>Área exclusiva do Administrador Principal.</span></footer>
           </div>
+        ) : profile.role === "administrador_principal" && administratorModules.includes(activeArea) ? (
+          <div className="content">
+            <section className="welcome-panel">
+              <div className="welcome-copy">
+                <span className="eyebrow">ÁREA EXCLUSIVA · ADMINISTRADOR PRINCIPAL</span>
+                <h2>{activeArea}</h2>
+                <p>Esta área faz parte do plano de administração da plataforma. A implementação será feita numa etapa própria, com as respetivas permissões e testes, antes de ficar disponível.</p>
+                <button type="button" className="secondary-button" onClick={() => setActiveArea("Painel inicial")}>Voltar ao painel inicial</button>
+              </div>
+              <div className="court-art" aria-hidden="true"><div className="court-line center-line" /><div className="court-circle" /><div className="court-box court-box-left" /><div className="court-box court-box-right" /></div>
+            </section>
+          </div>
         ) : activeArea === "Staff" ? (
           <div className="content staff-content">
             <div className="staff-heading">
