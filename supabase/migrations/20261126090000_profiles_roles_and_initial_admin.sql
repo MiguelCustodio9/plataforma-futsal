@@ -1,6 +1,4 @@
 -- Perfis e papéis privados. Aplicar apenas depois de rever o modelo e confirmar o projeto Supabase.
-create extension if not exists pgcrypto;
-
 do $$
 begin
   create type public.app_role as enum (
@@ -41,7 +39,7 @@ create index if not exists profiles_status_idx on public.profiles(status);
 
 alter table public.profiles enable row level security;
 
-create or replace function public.set_updated_at()
+create or replace function public.profiles_set_updated_at()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -89,7 +87,7 @@ using (
 
 -- Só o próprio utilizador pode alterar o nome apresentado. O papel e o estado
 -- não são concedidos para atualização pelo cliente.
-revoke all on table public.profiles from anon, authenticated;
+revoke all on table public.profiles from public, anon, authenticated;
 grant select on table public.profiles to authenticated;
 grant update (display_name) on table public.profiles to authenticated;
 
