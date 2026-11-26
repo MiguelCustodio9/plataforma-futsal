@@ -215,15 +215,21 @@ function AuthGate({ children }: { children: ReactNode }) {
   const [checkingSession, setCheckingSession] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordSetupRequired, setPasswordSetupRequired] = useState(() => {
+    const authType = new URLSearchParams(window.location.hash.slice(1)).get("type");
+    return authType === "invite" || authType === "recovery";
+  });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (mounted) {
+        if (event === "PASSWORD_RECOVERY") setPasswordSetupRequired(true);
         setSession(nextSession);
         setCheckingSession(false);
       }
@@ -272,9 +278,40 @@ function AuthGate({ children }: { children: ReactNode }) {
     }
     setBusy(true);
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+      const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
       if (resetError) setError("Não foi possível enviar a ligação de recuperação. Confirma o email e tenta novamente.");
       else setMessage("Se existir uma conta associada a este email, receberás uma mensagem com os passos para repor a palavra-passe.");
+    } catch {
+      setError("Não foi possível contactar o serviço de autenticação.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSetPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    if (password.length < 12 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      setError("A palavra-passe deve ter pelo menos 12 caracteres, incluindo maiúscula, minúscula, número e símbolo.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("As palavras-passe não coincidem.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) {
+        setError("Não foi possível definir a palavra-passe. Pede uma nova ligação de convite ou recuperação.");
+        return;
+      }
+      window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      setPasswordSetupRequired(false);
+      setPassword("");
+      setConfirmPassword("");
     } catch {
       setError("Não foi possível contactar o serviço de autenticação.");
     } finally {
@@ -286,36 +323,54 @@ function AuthGate({ children }: { children: ReactNode }) {
     return <main className="auth-loading"><span className="auth-spinner" /><p>A verificar sessão segura…</p></main>;
   }
 
+  if (session && passwordSetupRequired) {
+    return (
+      <main className="auth-page">
+        <section className="auth-visual" aria-label="Plataforma privada de futsal">
+          <a className="brand auth-brand" href="#password"><span className="brand-mark">PF</span><span><strong>PLATAFORMA</strong><small>FUTSAL</small></span></a>
+          <div className="auth-visual-copy"><span className="eyebrow">ACESSO SEGURO</span><h1>O primeiro passo para entrar em campo.</h1><p>Define uma palavra-passe pessoal para protegeres o acesso à plataforma.</p></div>
+          <div className="auth-court-art" aria-hidden="true"><span /><i /><b /></div>
+          <span className="auth-visual-foot">ACESSO EXCLUSIVO A UTILIZADORES AUTORIZADOS</span>
+        </section>
+        <section className="auth-panel" id="password">
+          <div className="auth-form-wrap">
+            <span className="eyebrow">CONTA CONVIDADA</span>
+            <h2>Definir palavra-passe</h2>
+            <p className="auth-intro">Escolhe uma palavra-passe segura para ativares o teu acesso.</p>
+            <form className="auth-form" onSubmit={handleSetPassword}>
+              <label htmlFor="new-password">Nova palavra-passe</label>
+              <div className="auth-password-field"><input id="new-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Mínimo de 12 caracteres" required /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}>{showPassword ? "Ocultar" : "Mostrar"}</button></div>
+              <label htmlFor="confirm-password">Confirmar palavra-passe</label>
+              <input id="confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Repete a palavra-passe" required />
+              <p className="auth-password-hint">Pelo menos 12 caracteres, com maiúscula, minúscula, número e símbolo.</p>
+              {error && <p className="auth-feedback auth-error" role="alert">{error}</p>}
+              <button className="auth-submit" type="submit" disabled={busy}>{busy ? "A guardar…" : "Guardar palavra-passe"}</button>
+            </form>
+            <div className="auth-security"><span className="auth-lock" aria-hidden="true">⌑</span><span>A palavra-passe é enviada diretamente ao serviço de autenticação seguro.</span></div>
+          </div>
+          <footer className="auth-footer">PLATAFORMA FUTSAL <span>·</span> ACESSO SEGURO</footer>
+        </section>
+      </main>
+    );
+  }
+
   if (session) return <>{children}</>;
 
   return (
     <main className="auth-page">
       <section className="auth-visual" aria-label="Plataforma privada de futsal">
-        <a className="brand auth-brand" href="#login" aria-label="Plataforma Futsal">
-          <span className="brand-mark">PF</span>
-          <span><strong>PLATAFORMA</strong><small>FUTSAL</small></span>
-        </a>
-        <div className="auth-visual-copy">
-          <span className="eyebrow">GESTÃO · ANÁLISE · EVOLUÇÃO</span>
-          <h1>O jogo prepara-se muito antes do apito inicial.</h1>
-          <p>Um espaço privado para organizar, acompanhar e desenvolver todas as dimensões da equipa.</p>
-        </div>
+        <a className="brand auth-brand" href="#login" aria-label="Plataforma Futsal"><span className="brand-mark">PF</span><span><strong>PLATAFORMA</strong><small>FUTSAL</small></span></a>
+        <div className="auth-visual-copy"><span className="eyebrow">GESTÃO · ANÁLISE · EVOLUÇÃO</span><h1>O jogo prepara-se muito antes do apito inicial.</h1><p>Um espaço privado para organizar, acompanhar e desenvolver todas as dimensões da equipa.</p></div>
         <div className="auth-court-art" aria-hidden="true"><span /><i /><b /></div>
         <span className="auth-visual-foot">ACESSO EXCLUSIVO A UTILIZADORES AUTORIZADOS</span>
       </section>
       <section className="auth-panel" id="login">
         <div className="auth-form-wrap">
-          <span className="eyebrow">BEM-VINDO DE VOLTA</span>
-          <h2>Iniciar sessão</h2>
-          <p className="auth-intro">Introduz as tuas credenciais para acederes à plataforma.</p>
+          <span className="eyebrow">BEM-VINDO DE VOLTA</span><h2>Iniciar sessão</h2><p className="auth-intro">Introduz as tuas credenciais para acederes à plataforma.</p>
           <form className="auth-form" onSubmit={handleLogin}>
-            <label htmlFor="auth-email">Email</label>
-            <input id="auth-email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@exemplo.pt" required />
+            <label htmlFor="auth-email">Email</label><input id="auth-email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@exemplo.pt" required />
             <div className="auth-password-label"><label htmlFor="auth-password">Palavra-passe</label><button type="button" onClick={() => void handlePasswordReset()} disabled={busy}>Esqueceste-te?</button></div>
-            <div className="auth-password-field">
-              <input id="auth-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Introduz a tua palavra-passe" required />
-              <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}>{showPassword ? "Ocultar" : "Mostrar"}</button>
-            </div>
+            <div className="auth-password-field"><input id="auth-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Introduz a tua palavra-passe" required /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}>{showPassword ? "Ocultar" : "Mostrar"}</button></div>
             {error && <p className="auth-feedback auth-error" role="alert">{error}</p>}
             {message && <p className="auth-feedback auth-success" role="status">{message}</p>}
             <button className="auth-submit" type="submit" disabled={busy}>{busy ? "A processar…" : "Entrar na plataforma"}</button>
