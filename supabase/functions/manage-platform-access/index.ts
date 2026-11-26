@@ -82,12 +82,15 @@ Deno.serve(async (request) => {
       return respond(500, { error: "O convite não pôde ser associado ao perfil. O acesso foi invalidado." });
     }
 
+    const sentAt = new Date();
     const { data: staffMember, error: staffError } = await admin.from("staff_members").insert({
       profile_id: invitedUserId,
       name: displayName,
       full_name: displayName,
       email,
       status: "convite_enviado",
+      invite_sent_at: sentAt.toISOString(),
+      invite_expires_at: new Date(sentAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_by: authData.user.id,
     }).select("id").single();
     if (staffError || !staffMember) {
