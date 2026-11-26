@@ -86,6 +86,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffError, setStaffError] = useState("");
   const [savingStaff, setSavingStaff] = useState(false);
+  const [invitingStaffId, setInvitingStaffId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [roleFilter, setRoleFilter] = useState("Todas");
@@ -199,6 +200,23 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     }
   };
 
+  const sendStaffInvite = async (member: StaffMember) => {
+    setInvitingStaffId(member.id);
+    setStaffError("");
+    try {
+      const { error } = await supabase.functions.invoke("invite-staff", {
+        body: { staffMemberId: member.id },
+      });
+      if (error) throw error;
+      await loadStaff();
+    } catch (error) {
+      console.error("Erro ao enviar convite de Staff:", error);
+      setStaffError("Não foi possível enviar o convite. Confirma a configuração de email e tenta novamente.");
+    } finally {
+      setInvitingStaffId(null);
+    }
+  };
+
   const changeStatus = async (id: string, status: StaffStatus) => {
     setStaffError("");
     const { error } = await supabase.from("staff_members")
@@ -277,13 +295,13 @@ function Dashboard({ profile }: { profile: UserProfile }) {
                       <div className="staff-person"><span className="staff-avatar">{member.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{member.name}</strong><span>{member.email}</span></div></div>
                       <div className="staff-roles">{member.roles.map((role) => <span key={role}>{role}</span>)}</div>
                       <div><span className={`status-pill status-${member.status.toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{member.status}</span></div>
-                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => void changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" ? <button onClick={() => changeStatus(member.id, "Ativo")}>Ativar</button> : <button onClick={() => changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
+                      {canManageStaff && <div className="staff-actions"><button onClick={() => openEditForm(member)}>Editar</button>{member.status === "Ativo" ? <button onClick={() => void changeStatus(member.id, "Suspenso")}>Suspender</button> : member.status === "Suspenso" ? <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button> : member.status === "Convite pendente" || member.status === "Convite expirado" ? <button onClick={() => void sendStaffInvite(member)} disabled={invitingStaffId === member.id}>{invitingStaffId === member.id ? "A enviar…" : member.status === "Convite expirado" ? "Reenviar convite" : "Enviar convite"}</button> : <button onClick={() => void changeStatus(member.id, "Ativo")}>Reativar</button>}</div>}
                     </article>
                   ))}
                 </div>
               )}
             </section>
-            {canManageStaff ? <p className="demo-notice">Os registos e as funções são guardados na base de dados da plataforma. O envio de convites por email será ativado numa etapa posterior.</p> : <p className="demo-notice">Apenas o Administrador Principal e o Treinador Principal podem adicionar, editar, suspender ou reativar elementos do Staff.</p>}{staffError && !staffLoading && <p className="form-error" role="alert">{staffError}</p>}
+            {canManageStaff ? <p className="demo-notice">Os convites são enviados por email aos elementos registados. A ativação da conta acontece depois de definirem a sua palavra-passe.</p> : <p className="demo-notice">Apenas o Administrador Principal e o Treinador Principal podem adicionar, editar, suspender ou reativar elementos do Staff.</p>}{staffError && !staffLoading && <p className="form-error" role="alert">{staffError}</p>}
           </div>
         ) : (
           <div className="content">
@@ -478,15 +496,26 @@ function AuthGate() {
     }
     setBusy(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password });
-      if (updateError) {
+      const { data: updatedAuth, error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError || !updatedAuth.user) {
         setError("Não foi possível definir a palavra-passe. Pede uma nova ligação de convite ou recuperação.");
         return;
       }
+      const { data: invitedProfile, error: invitedProfileError } = await supabase
+        .from("profiles").select("role, status").eq("id", updatedAuth.user.id).single();
+      if (invitedProfileError) {
+        setError("A palavra-passe foi guardada, mas não foi possível validar a ativação da conta. Tenta novamente.");
+        return;
+      }
+      if (invitedProfile.role === "staff" && invitedProfile.status === "convite_pendente") {
+        const { error: activationError } = await supabase.functions.invoke("accept-staff-invite", { body: {} });
+        if (activationError) {
+          setError("A palavra-passe foi guardada, mas a ativação da conta não foi concluída. Tenta novamente.");
+          return;
+        }
+      }
       window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
-      setPasswordSetupRequired(false);
-      setPassword("");
-      setConfirmPassword("");
+      window.location.reload();
     } catch {
       setError("Não foi possível contactar o serviço de autenticação.");
     } finally {
