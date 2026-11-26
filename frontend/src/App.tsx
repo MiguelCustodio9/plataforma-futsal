@@ -507,7 +507,8 @@ function AuthGate() {
         setError("A palavra-passe foi guardada, mas não foi possível validar a ativação da conta. Tenta novamente.");
         return;
       }
-      if (invitedProfile.role === "staff" && invitedProfile.status === "convite_pendente") {
+      const isPendingStaffInvite = invitedProfile.role === "staff" && invitedProfile.status === "convite_pendente";
+      if (isPendingStaffInvite) {
         const { error: activationError } = await supabase.functions.invoke("accept-staff-invite", { body: {} });
         if (activationError) {
           setError("A palavra-passe foi guardada, mas a ativação da conta não foi concluída. Tenta novamente.");
@@ -515,7 +516,13 @@ function AuthGate() {
         }
       }
       window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
-      window.location.reload();
+      if (isPendingStaffInvite) {
+        window.location.reload();
+      } else {
+        setPasswordSetupRequired(false);
+        setPassword("");
+        setConfirmPassword("");
+      }
     } catch {
       setError("Não foi possível contactar o serviço de autenticação.");
     } finally {
