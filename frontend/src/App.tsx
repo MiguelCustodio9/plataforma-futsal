@@ -435,6 +435,9 @@ function AuthGate() {
     const authType = new URLSearchParams(window.location.hash.slice(1)).get("type");
     return authType === "invite" || authType === "recovery";
   });
+  const [isStaffInviteFlow, setIsStaffInviteFlow] = useState(() =>
+    new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite"
+  );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -588,14 +591,9 @@ function AuthGate() {
         setError("Não foi possível definir a palavra-passe. Pede uma nova ligação de convite ou recuperação.");
         return;
       }
-      const { data: invitedProfile, error: invitedProfileError } = await supabase
-        .from("profiles").select("role, status").eq("id", updatedAuth.user.id).single();
-      if (invitedProfileError) {
-        setError("A palavra-passe foi guardada, mas não foi possível validar a ativação da conta. Tenta novamente.");
-        return;
-      }
-      const isPendingStaffInvite = invitedProfile.role === "staff" && invitedProfile.status === "convite_pendente";
-      if (isPendingStaffInvite) {
+      // O convite identifica este fluxo; a função valida o perfil com privilégios
+      // de servidor, evitando uma consulta a profiles que pode ser bloqueada por RLS.
+      if (isStaffInviteFlow) {
         const { error: activationError } = await supabase.functions.invoke("accept-staff-invite", { body: {} });
         if (activationError) {
           setError("A palavra-passe foi guardada, mas a ativação da conta não foi concluída. Tenta novamente.");
@@ -604,9 +602,10 @@ function AuthGate() {
       }
       window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
       setPasswordSetupRequired(false);
+      setIsStaffInviteFlow(false);
       setPassword("");
       setConfirmPassword("");
-      if (isPendingStaffInvite) setProfileRefresh((current) => current + 1);
+      if (isStaffInviteFlow) setProfileRefresh((current) => current + 1);
     } catch {
       setError("Não foi possível contactar o serviço de autenticação.");
     } finally {
