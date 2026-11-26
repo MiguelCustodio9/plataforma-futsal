@@ -34,7 +34,7 @@ type StaffDbRow = {
   birth_date: string | null;
   status: "pendente" | "convite_enviado" | "ativo" | "suspenso" | "convite_expirado" | "arquivado";
   created_at: string;
-  account_deleted_at: string | null;
+  account_deleted_at?: string | null;
   staff_member_roles: { role_name: string }[] | null;
 };
 
