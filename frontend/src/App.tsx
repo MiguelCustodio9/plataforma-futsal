@@ -84,7 +84,9 @@ function Dashboard({ profile }: { profile: UserProfile }) {
   const canManageStaff = profile.role === "administrador_principal" || profile.role === "treinador_principal";
   const visibleModules = profile.role === "staff"
     ? modules.filter((module) => module !== "Perfil da jogadora")
-    : modules;
+    : profile.role === "jogadora"
+      ? ["O meu perfil", "Os meus treinos", "Os meus jogos", "Biblioteca de vídeos"]
+      : modules;
   useEffect(() => {
     void testSupabaseConnection();
   }, []);
