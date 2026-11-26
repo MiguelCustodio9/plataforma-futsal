@@ -68,7 +68,7 @@ create or replace function public.staff_members_set_audit_fields()
 returns trigger
 language plpgsql
 set search_path = ''
-as $
+as $$
 begin
   if tg_op = 'INSERT' then
     new.created_by := coalesce(new.created_by, (select auth.uid()));
@@ -79,7 +79,7 @@ begin
   new.updated_at := now();
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists staff_members_set_audit_fields on public.staff_members;
 create trigger staff_members_set_audit_fields
