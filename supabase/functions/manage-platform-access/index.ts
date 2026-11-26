@@ -53,6 +53,76 @@ Deno.serve(async (request) => {
   let payload: { action?: unknown; targetProfileId?: unknown; status?: unknown };
   try { payload = await request.json(); } catch { return respond(400, { error: "Pedido inválido." }); }
 
+  if (payload.action === "create_trainer_principal") {
+    const displayName = typeof payload.displayName === "string" ? payload.displayName.trim() : "";
+    const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+    if (!displayName || displayName.length > 120 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 320) {
+      return respond(400, { error: "Indica um nome e um endereço de email válido." });
+    }
+
+    const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { display_name: displayName },
+      redirectTo: Deno.env.get("APP_REDIRECT_URL") ?? "https://miguelcustodio9.github.io/plataforma-futsal/",
+    });
+    if (inviteError || !invitation.user) {
+      console.error("Erro ao convidar Treinador Principal:", inviteError?.message);
+      return respond(409, { error: inviteError?.message ?? "Não foi possível enviar o convite. Confirma se o email já está associado a uma conta." });
+    }
+
+    const invitedUserId = invitation.user.id;
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: invitedUserId,
+      display_name: displayName,
+      role: "treinador_principal",
+      status: "convite_pendente",
+    });
+    if (profileError) {
+      await admin.auth.admin.deleteUser(invitedUserId);
+      console.error("Erro ao criar perfil de Treinador Principal:", profileError.message);
+      return respond(500, { error: "O convite não pôde ser associado ao perfil. O acesso foi invalidado." });
+    }
+
+    const { data: staffMember, error: staffError } = await admin.from("staff_members").insert({
+      profile_id: invitedUserId,
+      name: displayName,
+      full_name: displayName,
+      email,
+      status: "convite_enviado",
+      created_by: authData.user.id,
+    }).select("id").single();
+    if (staffError || !staffMember) {
+      await admin.from("profiles").delete().eq("id", invitedUserId);
+      await admin.auth.admin.deleteUser(invitedUserId);
+      console.error("Erro ao criar ficha Staff do Treinador Principal:", staffError?.message);
+      return respond(500, { error: "Não foi possível criar a ficha Staff. O convite foi invalidado." });
+    }
+
+    const { error: roleError } = await admin.from("staff_member_roles").insert({
+      staff_member_id: staffMember.id,
+      role_name: "Treinador Principal",
+    });
+    if (roleError) {
+      await admin.from("staff_members").delete().eq("id", staffMember.id);
+      await admin.from("profiles").delete().eq("id", invitedUserId);
+      await admin.auth.admin.deleteUser(invitedUserId);
+      console.error("Erro ao atribuir função de Treinador Principal:", roleError.message);
+      return respond(500, { error: "Não foi possível atribuir a função. O convite foi invalidado." });
+    }
+
+    const { error: auditError } = await admin.from("platform_access_audit").insert({
+      target_profile_id: invitedUserId,
+      actor_profile_id: authData.user.id,
+      event_type: "account_invited",
+      previous_status: "convite_pendente",
+      new_status: "convite_pendente",
+    });
+    if (auditError) {
+      console.error("Convite criado, mas a auditoria falhou:", auditError.message);
+      return respond(500, { error: "A conta foi criada, mas não foi possível concluir o registo de auditoria." });
+    }
+    return respond(200, { message: "Convite de Treinador Principal enviado com sucesso." });
+  }
+
   if (payload.action === "list") {
     const { data: profiles, error: profilesError } = await admin.from("profiles")
       .select("id, display_name, role, status, created_at")
