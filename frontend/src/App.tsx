@@ -147,7 +147,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
       setFormError("Preenche o nome, o email e pelo menos uma função.");
       return;
     }
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setFormError("Indica um endereço de email válido.");
       return;
     }
