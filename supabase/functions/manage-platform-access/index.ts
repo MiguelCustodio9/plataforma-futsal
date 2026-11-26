@@ -113,12 +113,15 @@ Deno.serve(async (request) => {
       target_profile_id: invitedUserId,
       actor_profile_id: authData.user.id,
       event_type: "account_invited",
-      previous_status: "convite_pendente",
+      previous_status: null,
       new_status: "convite_pendente",
     });
     if (auditError) {
-      console.error("Convite criado, mas a auditoria falhou:", auditError.message);
-      return respond(500, { error: "A conta foi criada, mas não foi possível concluir o registo de auditoria." });
+      await admin.from("staff_members").delete().eq("id", staffMember.id);
+      await admin.from("profiles").delete().eq("id", invitedUserId);
+      await admin.auth.admin.deleteUser(invitedUserId);
+      console.error("Erro ao auditar criação do convite; conta revertida:", auditError.message);
+      return respond(500, { error: "Não foi possível concluir o registo de auditoria. O convite foi invalidado." });
     }
     return respond(200, { message: "Convite de Treinador Principal enviado com sucesso." });
   }
