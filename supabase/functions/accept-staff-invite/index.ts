@@ -41,20 +41,20 @@ Deno.serve(async (request) => {
   const { data: profile, error: profileReadError } = await admin.from("profiles")
     .select("role, status").eq("id", authData.user.id).maybeSingle();
   if (profileReadError) {
-    console.error("Erro ao consultar perfil durante ativação Staff:", profileReadError);
+    console.error("Erro ao consultar perfil durante ativação de convite:", profileReadError);
     return respond(500, {
       error: "Não foi possível validar o perfil.",
       diagnostic: [profileReadError.code, profileReadError.message].filter(Boolean).join(" — "),
     });
   }
-  if (!profile || profile.role !== "staff" || profile.status !== "convite_pendente") {
-    return respond(409, { error: "Não existe um convite de Staff pendente para esta conta." });
+  if (!profile || !["staff", "treinador_principal"].includes(profile.role) || profile.status !== "convite_pendente") {
+    return respond(409, { error: "Não existe um convite pendente válido para esta conta." });
   }
 
   const { data: member, error: memberReadError } = await admin.from("staff_members")
     .select("id, email").eq("profile_id", authData.user.id).maybeSingle();
   if (memberReadError) {
-    console.error("Erro ao consultar ficha Staff durante ativação:", memberReadError);
+    console.error("Erro ao consultar ficha Staff durante ativação de convite:", memberReadError);
     return respond(500, {
       error: "Não foi possível validar a ficha Staff.",
       diagnostic: [memberReadError.code, memberReadError.message].filter(Boolean).join(" — "),
@@ -67,7 +67,7 @@ Deno.serve(async (request) => {
   const { error: profileUpdateError } = await admin.from("profiles")
     .update({ status: "ativo" }).eq("id", authData.user.id);
   if (profileUpdateError) {
-    console.error("Erro ao ativar perfil Staff:", profileUpdateError);
+    console.error("Erro ao ativar perfil após convite:", profileUpdateError);
     return respond(500, {
       error: "Não foi possível ativar o perfil.",
       diagnostic: [profileUpdateError.code, profileUpdateError.message, profileUpdateError.details].filter(Boolean).join(" — "),
@@ -77,7 +77,7 @@ Deno.serve(async (request) => {
   const { error: memberUpdateError } = await admin.from("staff_members")
     .update({ status: "ativo" }).eq("id", member.id);
   if (memberUpdateError) {
-    console.error("Erro ao ativar ficha Staff:", memberUpdateError);
+    console.error("Erro ao ativar ficha Staff após convite:", memberUpdateError);
     await admin.from("profiles").update({ status: "convite_pendente" }).eq("id", authData.user.id);
     return respond(500, {
       error: "Não foi possível concluir a ativação do Staff.",
@@ -85,5 +85,5 @@ Deno.serve(async (request) => {
     });
   }
 
-  return respond(200, { message: "Conta de Staff ativada." });
+  return respond(200, { message: profile.role === "treinador_principal" ? "Conta de Treinador Principal ativada." : "Conta de Staff ativada." });
 });
