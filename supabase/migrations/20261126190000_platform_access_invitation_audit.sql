@@ -12,5 +12,6 @@ alter table public.platform_access_audit
   check (event_type in (
     'account_suspended',
     'account_reactivated',
-    'account_invited'
+    'account_invited',
+    'account_invite_resent'
   ));
