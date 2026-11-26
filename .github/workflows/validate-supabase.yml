@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - "supabase/functions/**"
+      - "supabase/migrations/**"
       - "supabase/config.toml"
       - ".github/workflows/validate-supabase.yml"
   pull_request:
     paths:
       - "supabase/functions/**"
+      - "supabase/migrations/**"
       - "supabase/config.toml"
       - ".github/workflows/validate-supabase.yml"
   workflow_dispatch:
