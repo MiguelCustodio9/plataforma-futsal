@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { testSupabaseConnection } from "./lib/supabase";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { supabase, testSupabaseConnection } from "./lib/supabase";
 
 const modules = [
   "Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos",
@@ -28,7 +28,7 @@ const initialStaff: StaffMember[] = [
   { id: 2, name: "Exemplo de adjunto", fullName: "Exemplo de adjunto", email: "adjunto@exemplo.pt", birthDate: "", roles: ["Adjunto", "Treinador de GR"], status: "Convite pendente", createdAt: "2026-11-25" },
 ];
 
-export default function App() {
+function Dashboard() {
 
   useEffect(() => {
     void testSupabaseConnection();
@@ -139,7 +139,7 @@ export default function App() {
       <section className="main-area" id="inicio">
         <header className="topbar">
           <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Staff" ? "Gestão de Staff" : "Centro de controlo"}</h1></div>
-          <div className="topbar-meta"><span className="environment">AMBIENTE DE DESENVOLVIMENTO</span><span className="avatar" aria-label="Sem sessão iniciada">—</span></div>
+          <div className="topbar-meta"><span className="environment">SESSÃO AUTENTICADA</span><button className="sign-out-button" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button></div>
         </header>
 
         {activeArea === "Staff" ? (
@@ -207,4 +207,128 @@ export default function App() {
       </div>}
     </main>
   );
+}
+
+
+function AuthGate({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) {
+        setSession(nextSession);
+        setCheckingSession(false);
+      }
+    });
+    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!mounted) return;
+      if (sessionError) setError("Não foi possível verificar a sessão. Tenta novamente.");
+      setSession(data.session);
+      setCheckingSession(false);
+    }).catch(() => {
+      if (mounted) {
+        setError("Não foi possível contactar o serviço de autenticação.");
+        setCheckingSession(false);
+      }
+    });
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setBusy(true);
+    try {
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (loginError) setError("Não foi possível iniciar sessão. Confirma o email e a palavra-passe.");
+    } catch {
+      setError("O serviço de autenticação não está disponível neste momento.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    setError("");
+    setMessage("");
+    if (!email.trim()) {
+      setError("Introduz o teu email para receberes a ligação de recuperação.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+      if (resetError) setError("Não foi possível enviar a ligação de recuperação. Confirma o email e tenta novamente.");
+      else setMessage("Se existir uma conta associada a este email, receberás uma mensagem com os passos para repor a palavra-passe.");
+    } catch {
+      setError("Não foi possível contactar o serviço de autenticação.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (checkingSession) {
+    return <main className="auth-loading"><span className="auth-spinner" /><p>A verificar sessão segura…</p></main>;
+  }
+
+  if (session) return <>{children}</>;
+
+  return (
+    <main className="auth-page">
+      <section className="auth-visual" aria-label="Plataforma privada de futsal">
+        <a className="brand auth-brand" href="#login" aria-label="Plataforma Futsal">
+          <span className="brand-mark">PF</span>
+          <span><strong>PLATAFORMA</strong><small>FUTSAL</small></span>
+        </a>
+        <div className="auth-visual-copy">
+          <span className="eyebrow">GESTÃO · ANÁLISE · EVOLUÇÃO</span>
+          <h1>O jogo prepara-se muito antes do apito inicial.</h1>
+          <p>Um espaço privado para organizar, acompanhar e desenvolver todas as dimensões da equipa.</p>
+        </div>
+        <div className="auth-court-art" aria-hidden="true"><span /><i /><b /></div>
+        <span className="auth-visual-foot">ACESSO EXCLUSIVO A UTILIZADORES AUTORIZADOS</span>
+      </section>
+      <section className="auth-panel" id="login">
+        <div className="auth-form-wrap">
+          <span className="eyebrow">BEM-VINDO DE VOLTA</span>
+          <h2>Iniciar sessão</h2>
+          <p className="auth-intro">Introduz as tuas credenciais para acederes à plataforma.</p>
+          <form className="auth-form" onSubmit={handleLogin}>
+            <label htmlFor="auth-email">Email</label>
+            <input id="auth-email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@exemplo.pt" required />
+            <div className="auth-password-label"><label htmlFor="auth-password">Palavra-passe</label><button type="button" onClick={() => void handlePasswordReset()} disabled={busy}>Esqueceste-te?</button></div>
+            <div className="auth-password-field">
+              <input id="auth-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Introduz a tua palavra-passe" required />
+              <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}>{showPassword ? "Ocultar" : "Mostrar"}</button>
+            </div>
+            {error && <p className="auth-feedback auth-error" role="alert">{error}</p>}
+            {message && <p className="auth-feedback auth-success" role="status">{message}</p>}
+            <button className="auth-submit" type="submit" disabled={busy}>{busy ? "A processar…" : "Entrar na plataforma"}</button>
+          </form>
+          <div className="auth-security"><span className="auth-lock" aria-hidden="true">⌑</span><span>Acesso privado. As contas são criadas apenas por convite ou configuração autorizada.</span></div>
+          <p className="auth-no-account">Não tens acesso? Contacta o administrador da plataforma.</p>
+        </div>
+        <footer className="auth-footer">PLATAFORMA FUTSAL <span>·</span> ACESSO SEGURO</footer>
+      </section>
+    </main>
+  );
+}
+
+export default function App() {
+  return <AuthGate><Dashboard /></AuthGate>;
 }
