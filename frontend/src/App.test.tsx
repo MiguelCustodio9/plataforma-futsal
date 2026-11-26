@@ -151,6 +151,51 @@ describe("plataforma de futsal", () => {
     }));
   });
 
+
+  it("permite reenviar um convite pendente sem criar outra ficha", async () => {
+    mockStaffOrder.mockResolvedValueOnce({
+      data: [{
+        id: "staff-invite-2", profile_id: "pending-profile-2", name: "Treinadora Pendente",
+        full_name: "Treinadora Pendente", email: "pendente@exemplo.pt", birth_date: null,
+        status: "convite_enviado", created_at: "2026-11-26T10:00:00Z",
+        account_deleted_at: null, staff_member_roles: [{ role_name: "Treinador Adjunto" }],
+      }],
+      error: null,
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Reenviar convite" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/convite anterior será invalidado/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar reenvio" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-staff-account", {
+      body: { action: "resend_invite", staffMemberId: "staff-invite-2" },
+    }));
+  });
+
+  it("permite eliminar a conta de acesso sem eliminar a ficha Staff", async () => {
+    mockStaffOrder.mockResolvedValueOnce({
+      data: [{
+        id: "staff-active-1", profile_id: "active-profile-1", name: "Treinador Ativo",
+        full_name: "Treinador Ativo", email: "ativo@exemplo.pt", birth_date: null,
+        status: "ativo", created_at: "2026-11-26T10:00:00Z",
+        account_deleted_at: null, staff_member_roles: [{ role_name: "Treinador Principal" }],
+      }],
+      error: null,
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar conta" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/ficha Staff, as funções e o histórico serão preservados/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar eliminação" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-staff-account", {
+      body: { action: "delete_account", staffMemberId: "staff-active-1" },
+    }));
+  });
+
   it("permite ao Treinador Principal gerir o Staff", async () => {
     mockProfile.role = "treinador_principal";
     render(<App />);
