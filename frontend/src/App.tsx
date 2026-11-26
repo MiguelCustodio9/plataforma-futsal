@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase, testSupabaseConnection } from "./lib/supabase";
 
 const modules = [
@@ -219,7 +219,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 }
 
 
-function AuthGate({ children }: { children: ReactNode }) {
+function AuthGate() {
   const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -509,5 +509,5 @@ function AuthGate({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  return <AuthGate><></></AuthGate>;
+  return <AuthGate />;
 }
