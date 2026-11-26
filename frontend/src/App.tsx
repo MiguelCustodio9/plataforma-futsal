@@ -106,6 +106,9 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
   const [selectedAccount, setSelectedAccount] = useState<PlatformAccount | null>(null);
   const [nextStatus, setNextStatus] = useState<"ativo" | "suspenso" | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showTrainerForm, setShowTrainerForm] = useState(false);
+  const [trainerName, setTrainerName] = useState("");
+  const [trainerEmail, setTrainerEmail] = useState("");
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
@@ -175,6 +178,47 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     }
   };
 
+  const createTrainerPrincipal = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = trainerName.trim();
+    const email = trainerEmail.trim().toLocaleLowerCase("pt-PT");
+    if (!name || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      setError("Indica um nome e um endereço de email válido.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
+        body: { action: "create_trainer_principal", displayName: name, email },
+      });
+      if (invokeError) {
+        if (invokeError.context instanceof Response) {
+          try {
+            const payload = await invokeError.context.clone().json() as { error?: string };
+            if (payload.error) throw new Error(payload.error);
+          } catch (readError) {
+            if (readError instanceof Error && readError.message !== "Unexpected end of JSON input") throw readError;
+          }
+        }
+        throw invokeError;
+      }
+      setNotice(typeof data?.message === "string" ? data.message : "Convite para Treinador Principal enviado.");
+      setTrainerName("");
+      setTrainerEmail("");
+      setShowTrainerForm(false);
+      await loadAccounts();
+    } catch (createError) {
+      console.error("Erro ao criar Treinador Principal:", createError);
+      setError(createError instanceof Error && createError.message !== "Edge Function returned a non-2xx status code"
+        ? createError.message
+        : "Não foi possível criar a conta de Treinador Principal. Confirma se o email já está associado a outra conta.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const statusLabel = (status: PlatformAccount["status"]) => ({
     ativo: "Ativa",
     convite_pendente: "Convite pendente",
@@ -186,8 +230,19 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     <div className="content staff-content">
       <div className="staff-heading">
         <div><span className="eyebrow">ADMINISTRAÇÃO PRINCIPAL · CONTAS</span><h2>Gestão de acessos</h2><p>Consulta as contas de todas as áreas e controla o acesso à plataforma.</p></div>
-        <button className="secondary-button" onClick={() => void loadAccounts()} disabled={loading}>↻ Atualizar</button>
+        <div className="staff-heading-actions"><button className="primary-button" onClick={() => { setShowTrainerForm(true); setError(""); }}>+ Criar Treinador Principal</button><button className="secondary-button" onClick={() => void loadAccounts()} disabled={loading}>↻ Atualizar</button></div>
       </div>
+      {showTrainerForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShowTrainerForm(false); }}>
+        <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="create-trainer-title">
+          <div className="modal-heading"><div><span className="eyebrow">NOVO ACESSO DE TREINADOR</span><h2 id="create-trainer-title">Criar Treinador Principal</h2></div><button className="icon-button" onClick={() => setShowTrainerForm(false)} aria-label="Fechar" disabled={busy}>×</button></div>
+          <p>Será criada a conta e a ficha Staff, e enviado um convite por email para definir a palavra-passe.</p>
+          <form onSubmit={(event) => void createTrainerPrincipal(event)}>
+            <label>Nome apresentado *<input value={trainerName} onChange={(event) => setTrainerName(event.target.value)} required maxLength={120} /></label>
+            <label>Email de convite *<input type="email" value={trainerEmail} onChange={(event) => setTrainerEmail(event.target.value)} required maxLength={320} /></label>
+            <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowTrainerForm(false)} disabled={busy}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy ? "A criar…" : "Criar e enviar convite"}</button></div>
+          </form>
+        </section>
+      </div>}
       <section className="staff-stats" aria-label="Resumo das contas">
         <article><span>Total de contas</span><strong>{counts.total}</strong></article>
         <article><span>Ativas</span><strong>{counts.active}</strong></article>
