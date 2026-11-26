@@ -108,12 +108,24 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     setStaffLoading(true);
     setStaffError("");
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("staff_members")
         .select("id, profile_id, name, full_name, email, birth_date, status, created_at, account_deleted_at, staff_member_roles(role_name)")
         .order("created_at", { ascending: false });
+      // Mantém o módulo utilizável enquanto a migration de auditoria ainda não foi aplicada.
+      if (error && error.message.includes("account_deleted_at")) {
+        const legacyResult = await supabase
+          .from("staff_members")
+          .select("id, profile_id, name, full_name, email, birth_date, status, created_at, staff_member_roles(role_name)")
+          .order("created_at", { ascending: false });
+        data = legacyResult.data;
+        error = legacyResult.error;
+      }
       if (error) throw error;
-      setStaff(((data ?? []) as StaffDbRow[]).map(mapStaffRow));
+      setStaff(((data ?? []) as StaffDbRow[]).map((row) => mapStaffRow({
+        ...row,
+        account_deleted_at: row.account_deleted_at ?? null,
+      })));
     } catch (error) {
       console.error("Erro ao carregar Staff:", error);
       setStaffError("Não foi possível carregar os elementos do Staff. Verifica a ligação e as permissões e tenta novamente.");
