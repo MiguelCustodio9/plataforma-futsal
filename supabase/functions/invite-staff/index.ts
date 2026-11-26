@@ -45,8 +45,16 @@ Deno.serve(async (request) => {
   const { data: manager, error: managerError } = await admin.from("profiles")
     .select("role, status").eq("id", authData.user.id).maybeSingle();
   if (managerError) {
-    console.error("Erro ao consultar perfil do gestor:", managerError.message);
-    return respond(500, { error: "Não foi possível validar o perfil da conta. Tenta novamente." });
+    console.error("Erro ao consultar perfil do gestor:", {
+      code: managerError.code,
+      message: managerError.message,
+      details: managerError.details,
+      hint: managerError.hint,
+    });
+    return respond(500, {
+      error: "Não foi possível validar o perfil da conta.",
+      diagnostic: [managerError.code, managerError.message].filter(Boolean).join(" — "),
+    });
   }
   if (!manager) {
     console.error("Perfil do utilizador autenticado não encontrado.");
