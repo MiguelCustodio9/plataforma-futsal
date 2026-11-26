@@ -82,6 +82,9 @@ const roleLabels: Record<AppRole, string> = {
 
 function Dashboard({ profile }: { profile: UserProfile }) {
   const canManageStaff = profile.role === "administrador_principal" || profile.role === "treinador_principal";
+  const visibleModules = profile.role === "staff"
+    ? modules.filter((module) => module !== "Perfil da jogadora")
+    : modules;
   useEffect(() => {
     void testSupabaseConnection();
   }, []);
@@ -318,7 +321,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           <button className={activeArea === "Painel inicial" ? "nav-link active" : "nav-link"} onClick={() => setActiveArea("Painel inicial")}>
             <span aria-hidden="true">◈</span> Painel inicial
           </button>
-          {modules.map((module) => (
+          {visibleModules.map((module) => (
             <button key={module} className={activeArea === module ? "nav-link active" : "nav-link"} onClick={() => setActiveArea(module)} aria-current={activeArea === module ? "page" : undefined}>
               <span aria-hidden="true">◇</span> {module}
               {module !== "Staff" && <span className="soon">A preparar</span>}
