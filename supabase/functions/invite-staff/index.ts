@@ -39,10 +39,16 @@ Deno.serve(async (request) => {
   const { data: authData, error: authError } = await authClient.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: "Sessão inválida." });
 
+  // A consulta do perfil é feita com o JWT do próprio gestor.
+  // A política RLS permite-lhe ler o seu perfil; não exige privilégios elevados.
+  const managerClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: manager, error: managerError } = await admin.from("profiles")
+  const { data: manager, error: managerError } = await managerClient.from("profiles")
     .select("role, status").eq("id", authData.user.id).maybeSingle();
   if (managerError) {
     console.error("Erro ao consultar perfil do gestor:", {
