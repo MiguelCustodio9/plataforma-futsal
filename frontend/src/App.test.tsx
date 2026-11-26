@@ -143,6 +143,22 @@ describe("plataforma de futsal", () => {
     expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", { body: { action: "list" } });
   });
 
+  it("permite criar um Treinador Principal pela Gestão de acessos", async () => {
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
+    await screen.findByRole("heading", { level: 2, name: "Gestão de acessos" });
+    fireEvent.click(screen.getByRole("button", { name: /Criar Treinador Principal/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Nome apresentado *"), { target: { value: "Nova Treinadora Principal" } });
+    fireEvent.change(within(dialog).getByLabelText("Email de convite *"), { target: { value: "nova.treinadora@exemplo.pt" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Criar e enviar convite" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", {
+      body: { action: "create_trainer_principal", displayName: "Nova Treinadora Principal", email: "nova.treinadora@exemplo.pt" },
+    }));
+    await waitForDialogToClose();
+  });
+
   it("permite suspender uma conta a partir da Gestão de acessos com confirmação", async () => {
     mockAccessAccounts.push({
       id: "staff-account-2",
