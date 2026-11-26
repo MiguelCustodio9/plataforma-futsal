@@ -57,7 +57,7 @@ Deno.serve(async (request) => {
   }
 
   const { data: member, error: memberError } = await admin.from("staff_members")
-    .select("id, name, email, status, profile_id")
+    .select("id, name, email, status, profile_id, account_deleted_at")
     .eq("id", staffMemberId).maybeSingle();
   if (memberError || !member) return respond(404, { error: "Elemento de Staff não encontrado." });
 
@@ -92,7 +92,7 @@ Deno.serve(async (request) => {
     return respond(200, { message: "Conta de acesso eliminada. A ficha Staff e o histórico foram preservados." });
   }
 
-  if (!["convite_enviado", "convite_expirado"].includes(member.status)) {
+  if (!["convite_enviado", "convite_expirado"].includes(member.status) && !(member.status === "ativo" && member.account_deleted_at && !member.profile_id)) {
     return respond(409, { error: "Só é possível reenviar convites pendentes ou expirados." });
   }
 
