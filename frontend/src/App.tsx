@@ -341,6 +341,7 @@ function AuthGate() {
   const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileRefresh, setProfileRefresh] = useState(0);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [email, setEmail] = useState("");
@@ -445,7 +446,7 @@ function AuthGate() {
     return () => {
       mounted = false;
     };
-  }, [session?.user.id]);
+  }, [session?.user.id, profileRefresh]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -519,13 +520,10 @@ function AuthGate() {
         }
       }
       window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
-      if (isPendingStaffInvite) {
-        window.location.reload();
-      } else {
-        setPasswordSetupRequired(false);
-        setPassword("");
-        setConfirmPassword("");
-      }
+      setPasswordSetupRequired(false);
+      setPassword("");
+      setConfirmPassword("");
+      if (isPendingStaffInvite) setProfileRefresh((current) => current + 1);
     } catch {
       setError("Não foi possível contactar o serviço de autenticação.");
     } finally {
