@@ -53,7 +53,7 @@ $$;
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
 before update on public.profiles
-for each row execute function public.set_updated_at();
+for each row execute function public.profiles_set_updated_at();
 
 -- Função de autorização sem recursão nas políticas RLS.
 create or replace function public.current_user_has_role(required_role public.app_role)
