@@ -20,20 +20,21 @@ afterEach(() => {
 });
 
 describe("plataforma de futsal", () => {
-  it("apresenta o centro de controlo e as áreas planeadas", () => {
+  it("apresenta o centro de controlo e as áreas planeadas", async () => {
     render(<App />);
-    expect(screen.getByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Áreas do projeto" })).toBeInTheDocument();
     expect(screen.getAllByText("Biblioteca de vídeos")).toHaveLength(2);
   });
 
-  it("identifica que a aplicação ainda não tem sessão iniciada", () => {
+  it("apresenta a opção para terminar uma sessão autenticada", async () => {
     render(<App />);
-    expect(screen.getByLabelText("Sem sessão iniciada")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Terminar sessão" })).toBeInTheDocument();
   });
 
-  it("abre a área Staff e apresenta os registos", () => {
+  it("abre a área Staff e apresenta os registos", async () => {
     render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
     expect(screen.getByRole("heading", { name: "Gestão de Staff" })).toBeInTheDocument();
     expect(screen.getByText("Exemplo de treinador")).toBeInTheDocument();
@@ -44,8 +45,9 @@ describe("plataforma de futsal", () => {
 ).toBeInTheDocument();
   });
 
-  it("permite adicionar um elemento de Staff em modo de demonstração", () => {
+  it("permite adicionar um elemento de Staff em modo de demonstração", async () => {
     render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
     fireEvent.click(screen.getByRole("button", { name: /Adicionar elemento/ }));
     const dialog = screen.getByRole("dialog");
@@ -57,8 +59,9 @@ describe("plataforma de futsal", () => {
     expect(screen.getByText("nova@exemplo.pt")).toBeInTheDocument();
   });
 
-  it("impede registar o mesmo email duas vezes", () => {
+  it("impede registar o mesmo email duas vezes", async () => {
     render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
     fireEvent.click(screen.getByRole("button", { name: /Adicionar elemento/ }));
     const dialog = screen.getByRole("dialog");
