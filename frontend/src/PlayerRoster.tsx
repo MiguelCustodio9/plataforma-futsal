@@ -234,8 +234,10 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
             <label><span>Anos de prática</span><input type="number" min="0" max="80" value={form.practice_years} onChange={e => setForm({...form,practice_years:e.target.value})}/></label>
             <label><span>Clube anterior</span><input value={form.previous_club} onChange={e => setForm({...form,previous_club:e.target.value})}/><small>A associação à lista central de clubes será ligada no módulo Clubes.</small></label>
             <label><span>Outros desportos/atividades</span><input value={form.other_sports} onChange={e => setForm({...form,other_sports:e.target.value})}/></label>
-            <label><span>Perímetro abdominal (cm)</span><input type="number" min="0.1" max="300" step="0.1" value={form.abdominal_perimeter} onChange={e => setForm({...form,abdominal_perimeter:e.target.value})}/></label>
           </div><fieldset className="role-picker"><legend>Posições *</legend><div>{positions.map(position => <label key={position}><input type="checkbox" checked={form.positions.includes(position)} onChange={() => togglePosition(position)}/>{position}</label>)}</div><small>Universal é uma posição exclusiva e não pode ser combinada com outras.</small></fieldset></div>
+          <div className="roster-form-section"><h3>Dados antropométricos</h3><div className="form-grid">
+            <label><span>Perímetro abdominal (cm)</span><input type="number" min="0.1" max="300" step="0.1" value={form.abdominal_perimeter} onChange={e => setForm({...form,abdominal_perimeter:e.target.value})}/></label>
+          </div><small>Este dado pertence aos parâmetros antropométricos/físicos, não às características desportivas.</small></div>
           <div className="roster-form-section"><div className="roster-section-heading"><h3>Encarregados de Educação</h3><button type="button" className="secondary-button" onClick={()=>setGuardians(v=>[...v,emptyGuardian()])}>+ Adicionar EE</button></div>
             <p className="field-note">Dados de contacto dos Encarregados de Educação. Não são criadas contas de acesso à plataforma.</p>
             {guardians.map((g,i)=><div className="roster-related-card" key={g.id ?? ("guardian-"+i)}><div className="form-grid">
@@ -273,9 +275,9 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
           <div><span>Posições</span><strong>{selected.positions.join(" / ")}</strong></div><div><span>Pé dominante</span><strong>{selected.dominant_foot}</strong></div>
           <div><span>Número preferido</span><strong>{selected.preferred_number ?? "—"}</strong></div><div><span>Anos de prática</span><strong>{selected.practice_years ?? "—"}</strong></div>
           <div><span>Clube anterior</span><strong>{selected.previous_club || "—"}</strong></div><div><span>Outros desportos/atividades</span><strong>{selected.other_sports || "—"}</strong></div>
-          <div><span>Perímetro abdominal</span><strong>{selected.abdominal_perimeter == null ? "—" : `${selected.abdominal_perimeter} cm`}</strong></div>
           <div><span>Estado</span><strong>{statusLabels[selected.status]}</strong></div>
         </div>
+        <div className="roster-detail-related"><h3>Dados antropométricos</h3><div><strong>Perímetro abdominal</strong><span>{selected.abdominal_perimeter == null ? "—" : `${selected.abdominal_perimeter} cm`}</span></div></div>
         <div className="roster-detail-related"><h3>Encarregados de Educação</h3>{detailGuardians.length ? detailGuardians.map(g=><div key={g.id}><strong>{g.full_name}</strong><span>{g.relationship} · {[g.phone,g.email].filter(Boolean).join(" · ")}</span></div>) : <p>Sem Encarregados de Educação registados.</p>}</div>
         <div className="roster-detail-related"><h3>Histórico de carreira</h3>{detailCareer.length ? detailCareer.map(h=><div key={h.id}><strong>{h.club_name}</strong><span>{[h.team_name,h.season_label,[h.start_date,h.end_date].filter(Boolean).join(" – ")].filter(Boolean).join(" · ")}</span></div>) : <p>Sem histórico de carreira registado.</p>}</div>
         <div className="modal-actions">{canManage && <button className="danger-button" onClick={() => void archive(selected)}>Arquivar ficha</button>}<button className="secondary-button" onClick={() => setSelected(null)}>Fechar</button></div>
