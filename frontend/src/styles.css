@@ -446,3 +446,61 @@ input[type="file"]::-webkit-file-upload-button {
     padding-right: 8px;
   }
 }
+
+
+/* Seleção de texto e color pickers — identidade visual global da plataforma */
+::selection {
+  color: #f2fff8;
+  background: rgba(21, 151, 101, .78);
+  text-shadow: none;
+}
+::-moz-selection {
+  color: #f2fff8;
+  background: rgba(21, 151, 101, .78);
+  text-shadow: none;
+}
+
+/* Aspeto consistente dos controlos de cor em todos os módulos */
+input[type="color"] {
+  box-sizing: border-box;
+  width: 58px;
+  min-width: 58px;
+  height: 42px;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(117, 211, 158, .38);
+  border-radius: 10px;
+  background: linear-gradient(145deg, #123927, #09251a);
+  color-scheme: dark;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="color"]:hover {
+  border-color: rgba(141, 224, 177, .82);
+  box-shadow: 0 0 0 3px rgba(21, 151, 101, .13);
+}
+input[type="color"]:focus-visible {
+  outline: 2px solid #159765;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(0, 117, 73, .17);
+}
+input[type="color"]:active {
+  transform: scale(.97);
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid rgba(242, 255, 248, .42);
+  border-radius: 6px;
+}
+input[type="color"]::-moz-color-swatch {
+  border: 1px solid rgba(242, 255, 248, .42);
+  border-radius: 6px;
+}
+input[type="color"]:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
