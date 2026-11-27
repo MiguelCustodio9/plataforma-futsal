@@ -260,6 +260,7 @@ Deno.serve(async (request) => {
       event_type: "account_deleted",
       previous_status: target.status,
       new_status: "arquivado",
+      details: { display_name: target.display_name ?? "", email: staffMember.email ?? "" },
     });
     if (auditError) {
       console.error("Conta eliminada, mas falhou a auditoria:", auditError.message);
@@ -267,6 +268,100 @@ Deno.serve(async (request) => {
     }
 
     return respond(200, { message: "Conta de acesso eliminada. A ficha Staff, as funções e o histórico foram preservados." });
+  }
+
+  if (payload.action === "security_overview") {
+    const { data: profiles, error: profilesError } = await admin.from("profiles")
+      .select("id, display_name, role, status").order("created_at", { ascending: false });
+    if (profilesError) {
+      console.error("Erro ao obter perfis para segurança:", profilesError.message);
+      return respond(500, { error: "Não foi possível carregar o estado das contas." });
+    }
+
+    const users: { id: string; email?: string; email_confirmed_at?: string | null; last_sign_in_at?: string | null; banned_until?: string | null }[] = [];
+    for (let page = 1; page <= 100; page += 1) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 100 });
+      if (error) {
+        console.error("Erro ao obter utilizadores Auth para segurança:", error.message);
+        return respond(502, { error: "Não foi possível obter o estado de autenticação das contas." });
+      }
+      users.push(...data.users.map((user) => ({
+        id: user.id,
+        email: user.email ?? "",
+        email_confirmed_at: user.email_confirmed_at ?? null,
+        last_sign_in_at: user.last_sign_in_at ?? null,
+        banned_until: user.banned_until ?? null,
+      })));
+      if (data.users.length < 100) break;
+    }
+
+    const [accessAudit, settingsAudit, staffAudit] = await Promise.all([
+      admin.from("platform_access_audit").select("id, target_profile_id, actor_profile_id, event_type, previous_status, new_status, created_at, details").order("created_at", { ascending: false }).limit(100),
+      admin.from("platform_settings_audit").select("id, actor_profile_id, setting_key, outcome, created_at").order("created_at", { ascending: false }).limit(100),
+      admin.from("staff_account_audit").select("id, staff_member_id, target_auth_user_id, actor_profile_id, event_type, created_at").order("created_at", { ascending: false }).limit(100),
+    ]);
+    if (accessAudit.error || settingsAudit.error || staffAudit.error) {
+      console.error("Erro ao obter registos de atividade:", {
+        access: accessAudit.error?.message, settings: settingsAudit.error?.message, staff: staffAudit.error?.message,
+      });
+      return respond(500, { error: "Não foi possível carregar todos os registos de atividade. Confirma se as migrations de auditoria estão aplicadas." });
+    }
+
+    const staffIds = [...new Set((staffAudit.data ?? []).map((row) => row.staff_member_id).filter(Boolean))] as string[];
+    const staffNames = new Map<string, string>();
+    if (staffIds.length) {
+      const { data: members, error: membersError } = await admin.from("staff_members").select("id, name, full_name, email").in("id", staffIds);
+      if (membersError) return respond(500, { error: "Não foi possível identificar os elementos Staff nos registos de atividade." });
+      for (const member of members ?? []) staffNames.set(member.id, member.full_name || member.name || member.email || "Ficha Staff");
+    }
+
+    const profileNames = new Map((profiles ?? []).map((profile) => [profile.id, profile.display_name]));
+    const userById = new Map(users.map((user) => [user.id, user]));
+    const accounts = (profiles ?? []).map((profile) => {
+      const user = userById.get(profile.id);
+      return {
+        id: profile.id,
+        display_name: profile.display_name,
+        email: user?.email ?? "",
+        role: profile.role,
+        status: profile.status,
+        email_confirmed: Boolean(user?.email_confirmed_at),
+        last_sign_in_at: user?.last_sign_in_at ?? null,
+        banned_until: user?.banned_until ?? null,
+      };
+    });
+
+    const events = [
+      ...(accessAudit.data ?? []).map((row) => ({
+        id: `access-${row.id}`,
+        source: "acessos",
+        event_type: row.event_type,
+        actor_name: profileNames.get(row.actor_profile_id) ?? "",
+        target_name: profileNames.get(row.target_profile_id) ?? row.details?.display_name ?? "",
+        detail: row.details?.email ? `Email: ${row.details.email}` : row.previous_status || row.new_status ? `Estado: ${row.previous_status ?? "—"} → ${row.new_status ?? "—"}` : "",
+        created_at: row.created_at,
+      })),
+      ...(settingsAudit.data ?? []).map((row) => ({
+        id: `settings-${row.id}`,
+        source: "configuracoes",
+        event_type: "setting_changed",
+        actor_name: profileNames.get(row.actor_profile_id) ?? "",
+        target_name: "",
+        detail: `Configuração: ${row.setting_key} · ${row.outcome}`,
+        created_at: row.created_at,
+      })),
+      ...(staffAudit.data ?? []).map((row) => ({
+        id: `staff-${row.id}`,
+        source: "staff",
+        event_type: row.event_type,
+        actor_name: profileNames.get(row.actor_profile_id) ?? "",
+        target_name: row.staff_member_id ? staffNames.get(row.staff_member_id) ?? "" : "",
+        detail: row.event_type === "account_deleted" ? "Conta de acesso eliminada; ficha preservada" : "Operação sobre convite Staff",
+        created_at: row.created_at,
+      })),
+    ].sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()).slice(0, 150);
+
+    return respond(200, { accounts, events });
   }
 
   if (payload.action === "list") {
