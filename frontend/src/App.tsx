@@ -751,6 +751,13 @@ function AuthGate() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (mounted) {
         if (event === "PASSWORD_RECOVERY") setPasswordSetupRequired(true);
+        if (
+          new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite" &&
+          nextSession
+        ) {
+          // Convites antigos sem marcador continuam a seguir o fluxo Staff.
+          setIsStaffInviteFlow(nextSession.user.user_metadata?.invite_kind !== "initial_admin");
+        }
         setSession(nextSession);
         setCheckingSession(false);
       }
@@ -758,6 +765,13 @@ function AuthGate() {
     void supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!mounted) return;
       if (sessionError) setError("Não foi possível verificar a sessão. Tenta novamente.");
+      if (
+        new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite" &&
+        data.session
+      ) {
+        // O convite inicial do Administrador não deve chamar a função de ativação Staff.
+        setIsStaffInviteFlow(data.session.user.user_metadata?.invite_kind !== "initial_admin");
+      }
       setSession(data.session);
       setCheckingSession(false);
     }).catch(() => {
