@@ -31,6 +31,11 @@ type UsageMetrics = {
   retrievedAt: string;
 };
 
+type FeatureUsagePoint = {
+  feature_key: string;
+  event_count: number;
+};
+
 type UsageResponse = {
   configured: boolean;
   status: "not_configured" | "permission_denied" | "token_invalid" | "provider_unavailable" | "available" | "partial";
@@ -107,14 +112,22 @@ export function UsageLimits() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [featureUsage, setFeatureUsage] = useState<FeatureUsagePoint[]>([]);
+  const [featureUsageAvailable, setFeatureUsageAvailable] = useState(false);
 
   const loadUsage = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
     setError("");
     try {
-      const { data: response, error: invokeError } = await supabase.functions.invoke("monitor-platform-usage", { body: {} });
+      const [monitorResult, featureResult] = await Promise.all([
+        supabase.functions.invoke("monitor-platform-usage", { body: {} }),
+        supabase.rpc("get_platform_feature_usage"),
+      ]);
+      const { data: response, error: invokeError } = monitorResult;
       if (invokeError) throw invokeError;
+      setFeatureUsageAvailable(!featureResult.error && Array.isArray(featureResult.data));
+      setFeatureUsage(Array.isArray(featureResult.data) ? featureResult.data as FeatureUsagePoint[] : []);
       if (!response || typeof response.configured !== "boolean" || typeof response.status !== "string") {
         throw new Error("Resposta inválida do serviço de monitorização.");
       }
@@ -163,6 +176,27 @@ export function UsageLimits() {
               <section className="usage-overview-grid" aria-label="Resumo de utilização">
                 <article className="usage-overview-card usage-overview-featured"><span>Contagem agregada de pedidos à API</span><strong>{numberLabel(data.metrics.apiRequestsCount)}</strong><small>Valor devolvido pela Management API; não é uma percentagem de quota.</small></article>
                 <article className="usage-overview-card"><span>Registos temporais recebidos</span><strong>{data.metrics.apiCounts.length}</strong><small>Observações devolvidas pelo fornecedor.</small></article>
+              </section>
+
+              <section className="usage-section">
+                <div className="usage-section-heading"><div><h3>Utilização por funcionalidade</h3><p>Contagem agregada de aberturas das áreas nos últimos 30 dias. Não identifica utilizadores nem guarda conteúdo.</p></div></div>
+                {featureUsageAvailable ? featureUsage.length ? (
+                  <div className="usage-metric-grid">
+                    {featureUsage.map((feature) => {
+                      const labels: Record<string, string> = {
+                        dashboard: "Painel inicial",
+                        staff: "Gestão de Staff",
+                        access_management: "Gestão de acessos",
+                        platform_settings: "Configurações da plataforma",
+                        security_activity: "Segurança e atividade",
+                        usage_limits: "Utilização e limites",
+                      };
+                      return <article className="usage-metric-card" key={feature.feature_key}><span>{labels[feature.feature_key] ?? "Outra funcionalidade"}</span><strong>{numberLabel(feature.event_count)}</strong><small>Aberturas registadas · últimos 30 dias</small></article>;
+                    })}
+                  </div>
+                ) : <div className="empty-state"><strong>Ainda não existem dados de utilização por funcionalidade.</strong><p>Os registos começam a ser acumulados quando as áreas são abertas após a aplicação da migration.</p></div>
+                ) : <div className="empty-state"><strong>Indicador temporariamente indisponível.</strong><p>Confirma se a migration de métricas por funcionalidade já foi aplicada.</p></div>}
+                <p className="usage-quota-note">Este indicador mede a frequência de utilização das áreas, não o consumo direto de CPU, memória ou tráfego. É uma referência de utilização e não uma medição de custo.</p>
               </section>
 
               <section className="usage-section">
