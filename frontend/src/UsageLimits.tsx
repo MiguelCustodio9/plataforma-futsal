@@ -21,6 +21,8 @@ type EdgeFunctionUsage = {
   available: boolean;
   partial: boolean;
   status: "permission_denied" | "plan_restriction" | "rate_limited" | "available" | "unavailable";
+  functionLogsHttpStatus: number;
+  runtimeLogsHttpStatus: number;
   windowHours: number;
   invocations: number;
   serverErrors: number;
@@ -295,7 +297,7 @@ export function UsageLimits() {
                         ))}
                       </div>
                     ) : <div className="empty-state"><strong>Sem invocações registadas no período consultado.</strong></div>}
-                    {data.metrics.edgeFunctionMonitoring.partial && <p className="usage-quota-note">Monitorização parcial: nem todas as fontes de registos responderam.</p>}
+                    {data.metrics.edgeFunctionMonitoring.partial && <div className="usage-quota-note"><strong>Monitorização parcial: uma das fontes de registos não respondeu corretamente.</strong><p>Registos HTTP das funções: {data.metrics.edgeFunctionMonitoring.functionLogsHttpStatus === 200 ? "disponíveis" : `indisponíveis (HTTP ${data.metrics.edgeFunctionMonitoring.functionLogsHttpStatus})`}.</p><p>Registos de execução: {data.metrics.edgeFunctionMonitoring.runtimeLogsHttpStatus === 200 ? "disponíveis" : `indisponíveis (HTTP ${data.metrics.edgeFunctionMonitoring.runtimeLogsHttpStatus})`}.</p><p>Estes códigos identificam a origem da falha sem expor mensagens ou conteúdo dos logs.</p></div>}
                   </>
                 ) : (
                   <div className="empty-state">
