@@ -42,7 +42,7 @@ describe("Utilização e limites", () => {
 
     render(<UsageLimits />);
     expect(await screen.findByText("Monitorização ligada")).toBeInTheDocument();
-    expect(screen.getByText(/12\\s?345/)).toBeInTheDocument();
+    expect(screen.getByText(/12\s?345/)).toBeInTheDocument();
     expect(screen.getByText("Autenticação")).toBeInTheDocument();
     expect(screen.getByText("840")).toBeInTheDocument();
     expect(screen.getByText("Histórico de utilização")).toBeInTheDocument();
