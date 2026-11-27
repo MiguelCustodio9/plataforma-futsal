@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { getTimeZones } from "@vvo/tzdb";
 import { supabase } from "./lib/supabase";
 
 type Settings = {
@@ -36,6 +37,9 @@ const tabs = [
 
 type Tab = typeof tabs[number];
 
+const allTimeZones = getTimeZones({ locale: "pt" });
+const countryCollator = new Intl.Collator("pt", { sensitivity: "base" });
+
 const emptySettings: Settings = {
   club_name: "",
   club_emblem_path: null,
@@ -70,6 +74,34 @@ export function PlatformSettings() {
   const [teamFile, setTeamFile] = useState<File | null>(null);
   const [clubPreview, setClubPreview] = useState("");
   const [teamPreview, setTeamPreview] = useState("");
+
+  const countryOptions = useMemo(() => {
+    const countries = new Map<string, string>();
+    allTimeZones.forEach((zone) => {
+      if (zone.countryCode && zone.countryName) countries.set(zone.countryCode, zone.countryName);
+    });
+    return Array.from(countries, ([code, name]) => ({ code, name }))
+      .sort((a, b) => countryCollator.compare(a.name, b.name));
+  }, []);
+
+  const selectedCountry = countryOptions.find((country) => country.name === draft.country);
+  const zonesForCountry = useMemo(
+    () => selectedCountry ? allTimeZones.filter((zone) => zone.countryCode === selectedCountry.code) : [],
+    [selectedCountry],
+  );
+  const localityOptions = useMemo(
+    () => Array.from(new Set(zonesForCountry.flatMap((zone) => zone.mainCities)))
+      .sort(countryCollator.compare),
+    [zonesForCountry],
+  );
+  const zonesForLocality = useMemo(
+    () => zonesForCountry.filter((zone) => zone.mainCities.includes(draft.locality)),
+    [zonesForCountry, draft.locality],
+  );
+  const timezoneOptions = zonesForLocality.length ? zonesForLocality : zonesForCountry;
+  const selectedTimezone = timezoneOptions.find(
+    (zone) => zone.name === draft.timezone || zone.group.includes(draft.timezone),
+  );
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -114,6 +146,27 @@ export function PlatformSettings() {
 
   const updateDraft = (key: keyof Settings, value: string) => {
     setDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const updateCountry = (countryCode: string) => {
+    const country = countryOptions.find((item) => item.code === countryCode);
+    if (!country) return;
+    const firstZone = allTimeZones.find((zone) => zone.countryCode === countryCode);
+    setDraft((current) => ({
+      ...current,
+      country: country.name,
+      locality: "",
+      timezone: firstZone?.name ?? "",
+    }));
+  };
+
+  const updateLocality = (locality: string) => {
+    const matchingZone = zonesForCountry.find((zone) => zone.mainCities.includes(locality));
+    setDraft((current) => ({
+      ...current,
+      locality,
+      timezone: matchingZone?.name ?? current.timezone,
+    }));
   };
 
   const updateColor = (entity: "club" | "team", key: string, value: string) => {
@@ -216,10 +269,27 @@ export function PlatformSettings() {
           {tab === "Época desportiva" && <section className="settings-panel"><h3>Época desportiva</h3><p>Consulta apenas. O Administrador Principal não pode criar, trocar, encerrar ou reabrir épocas.</p><div className="settings-info"><strong>Informação da época</strong><span>Não existe ainda um módulo de épocas ligado às configurações. Esta secção ficará ligada quando o modelo de épocas for implementado.</span></div></section>}
 
           {tab === "Localização e fuso horário" && <section className="settings-panel">
-            <h3>Localização e fuso horário</h3><p>As alterações aplicam-se a novos horários. Os instantes dos registos históricos não devem ser reinterpretados.</p>
-            <label>País<input value={draft.country} maxLength={120} onChange={(event) => updateDraft("country", event.target.value)} /></label>
-            <label>Localidade<input value={draft.locality} maxLength={160} onChange={(event) => updateDraft("locality", event.target.value)} /></label>
-            <label>Fuso horário (identificador IANA)<input value={draft.timezone} maxLength={80} onChange={(event) => updateDraft("timezone", event.target.value)} placeholder="Europe/Lisbon" /></label>
+            <h3>Localização e fuso horário</h3><p>Seleciona primeiro o país. As localidades disponíveis e os fusos horários são filtrados automaticamente; o fuso horário é sugerido pela localidade e pode ser ajustado manualmente.</p>
+            <label>País
+              <select value={selectedCountry?.code ?? ""} onChange={(event) => updateCountry(event.target.value)}>
+                <option value="">Selecionar país</option>
+                {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
+              </select>
+            </label>
+            <label>Localidade / cidade
+              <select value={draft.locality} onChange={(event) => updateLocality(event.target.value)} disabled={!selectedCountry}>
+                <option value="">Selecionar localidade</option>
+                {draft.locality && !localityOptions.includes(draft.locality) && <option value={draft.locality}>{draft.locality} (valor guardado)</option>}
+                {localityOptions.map((locality) => <option key={locality} value={locality}>{locality}</option>)}
+              </select>
+              <span className="settings-field-hint">A lista apresenta as principais cidades associadas aos fusos horários oficiais de cada país.</span>
+            </label>
+            <label>Fuso horário
+              <select value={selectedTimezone?.name ?? draft.timezone} onChange={(event) => updateDraft("timezone", event.target.value)} disabled={!selectedCountry}>
+                {!selectedTimezone && draft.timezone && <option value={draft.timezone}>{draft.timezone} (valor guardado)</option>}
+                {timezoneOptions.map((zone) => <option key={zone.name} value={zone.name}>{zone.currentTimeFormat} · {zone.name}</option>)}
+              </select>
+            </label>
             <button className="primary-button" type="button" onClick={() => setShowConfirmation(true)}>Pré-visualizar e guardar</button>
           </section>}
 
