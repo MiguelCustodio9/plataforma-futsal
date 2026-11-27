@@ -93,7 +93,15 @@ export function PlatformSettings() {
       if (!settingsResult.error) setError(auditResult.error.message);
       setAudit([]);
     } else {
-      setAudit((auditResult.data ?? []) as AuditRow[]);
+      const auditRows = (auditResult.data ?? []) as AuditRow[];
+      const actorIds = [...new Set(auditRows.map((row) => row.actor_profile_id).filter((id): id is string => Boolean(id)))];
+      if (actorIds.length) {
+        const actorsResult = await supabase.from("profiles").select("id,display_name").in("id", actorIds);
+        const actorNames = new Map((actorsResult.data ?? []).map((actor: { id: string; display_name: string }) => [actor.id, actor.display_name]));
+        setAudit(auditRows.map((row) => ({ ...row, actor_display_name: row.actor_profile_id ? actorNames.get(row.actor_profile_id) : undefined })));
+      } else {
+        setAudit(auditRows);
+      }
     }
     setAuthStatus(authResult.error ? "Com problemas" : authResult.data.session ? "Disponível" : "Sessão não confirmada");
     setLoading(false);
@@ -114,9 +122,35 @@ export function PlatformSettings() {
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
+    try {
+      new Intl.DateTimeFormat("pt-PT", { timeZone: draft.timezone }).format(new Date());
+    } catch {
+      setError("Indica um fuso horário IANA válido, por exemplo Europe/Lisbon.");
+      return;
+    }
     setSaving(true);
     setError("");
     setNotice("");
+    const uploadedPaths: string[] = [];
+    let clubEmblemPath = draft.club_emblem_path;
+    let teamEmblemPath = draft.team_emblem_path;
+    const uploadEmblem = async (file: File, folder: "clube" | "equipa") => {
+      const extension = file.type === "image/png" ? "png" : file.type === "image/jpeg" ? "jpg" : "webp";
+      const path = folder + "/" + crypto.randomUUID() + "." + extension;
+      const result = await supabase.storage.from("platform-branding").upload(path, file, { upsert: false, contentType: file.type });
+      if (result.error) throw result.error;
+      uploadedPaths.push(path);
+      return path;
+    };
+    try {
+      if (clubFile) clubEmblemPath = await uploadEmblem(clubFile, "clube");
+      if (teamFile) teamEmblemPath = await uploadEmblem(teamFile, "equipa");
+    } catch (uploadError) {
+      if (uploadedPaths.length) await supabase.storage.from("platform-branding").remove(uploadedPaths);
+      setError(uploadError instanceof Error ? uploadError.message : "Não foi possível carregar o emblema.");
+      setSaving(false);
+      return;
+    }
     const { error: saveError } = await supabase.from("platform_settings").update({
       club_name: draft.club_name.trim(),
       club_emblem_path: clubEmblemPath || null,
@@ -129,15 +163,19 @@ export function PlatformSettings() {
       timezone: draft.timezone.trim(),
     }).eq("singleton", true);
     if (saveError) {
+      if (uploadedPaths.length) await supabase.storage.from("platform-branding").remove(uploadedPaths);
       setError(saveError.message);
     } else {
       setNotice("Configurações guardadas e registadas no histórico.");
       setShowConfirmation(false);
+      setClubFile(null);
+      setTeamFile(null);
+      setClubPreview("");
+      setTeamPreview("");
       await loadSettings();
     }
     setSaving(false);
   };
-
   const resetDraft = () => {
     setDraft(settings);
     setShowConfirmation(false);
