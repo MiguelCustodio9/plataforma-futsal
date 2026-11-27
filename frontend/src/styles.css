@@ -307,3 +307,86 @@ button { cursor: pointer; }
 .settings-emblem-note { margin: -7px 0 0 !important; font-size: .82rem; overflow-wrap: anywhere; }
 .settings-preview-emblems { display: flex; gap: 12px; margin-top: 14px; }
 .settings-preview-emblems img { width: 72px; height: 72px; object-fit: contain; border-radius: 10px; background: #fff; padding: 5px; }
+
+
+/* Controlos de ficheiros e scrollbars — identidade visual da plataforma */
+input[type="file"] {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px;
+  border: 1px solid rgba(169, 199, 182, .24);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(18, 57, 39, .92), rgba(9, 37, 26, .96));
+  color: #c3d9cb;
+  font: 500 12px "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+input[type="file"]:hover {
+  border-color: rgba(21, 151, 101, .75);
+  background: linear-gradient(135deg, rgba(20, 67, 46, .98), rgba(9, 42, 29, .98));
+}
+input[type="file"]:focus-visible {
+  outline: 2px solid #159765;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(0, 117, 73, .16);
+}
+input[type="file"]::file-selector-button {
+  min-height: 32px;
+  margin: 0 12px 0 0;
+  padding: 0 14px;
+  border: 1px solid rgba(117, 211, 158, .32);
+  border-radius: 7px;
+  background: linear-gradient(135deg, #176b45, #0d5134);
+  color: #f2fff8;
+  font: 700 11px "DM Sans", sans-serif;
+  letter-spacing: .01em;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+input[type="file"]::file-selector-button:hover {
+  border-color: rgba(141, 224, 177, .7);
+  background: linear-gradient(135deg, #1c8052, #11633f);
+}
+input[type="file"]::file-selector-button:active { transform: translateY(1px); }
+input[type="file"]::-webkit-file-upload-button {
+  min-height: 32px;
+  margin: 0 12px 0 0;
+  padding: 0 14px;
+  border: 1px solid rgba(117, 211, 158, .32);
+  border-radius: 7px;
+  background: linear-gradient(135deg, #176b45, #0d5134);
+  color: #f2fff8;
+  font: 700 11px "DM Sans", sans-serif;
+  cursor: pointer;
+}
+
+/* Scrollbars consistentes em toda a aplicação, incluindo painéis e tabelas */
+:root {
+  scrollbar-color: #287a53 #081f16;
+  scrollbar-width: thin;
+}
+* {
+  scrollbar-color: #287a53 #081f16;
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+*::-webkit-scrollbar-track {
+  border: 1px solid rgba(211, 255, 230, .045);
+  border-radius: 999px;
+  background: #081f16;
+}
+*::-webkit-scrollbar-thumb {
+  min-height: 34px;
+  border: 2px solid #081f16;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #368b60, #1d6844);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #49a875, #287a53);
+}
+*::-webkit-scrollbar-corner { background: #081f16; }
