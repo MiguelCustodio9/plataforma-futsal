@@ -3,6 +3,7 @@ import { supabase, testSupabaseConnection } from "./lib/supabase";
 import { PlatformSettings } from "./PlatformSettings";
 import { SecurityActivity } from "./SecurityActivity";
 import { UsageLimits } from "./UsageLimits";
+import { PlayerRoster } from "./PlayerRoster";
 
 const modules = [
   "Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos",
@@ -800,6 +801,8 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             </section>
             {canManageStaff ? <p className="demo-notice">Os convites são enviados por email aos elementos registados. A ativação da conta acontece depois de definirem a sua palavra-passe.</p> : <p className="demo-notice">Apenas o Administrador Principal e o Treinador Principal podem adicionar, editar, suspender ou reativar elementos do Staff.</p>}{staffError && !staffLoading && <p className="form-error" role="alert">{staffError}</p>}
           </div>
+        ) : (profile.role === "treinador_principal" || profile.role === "staff") && activeArea === "Plantel" ? (
+          <PlayerRoster canManage={profile.role === "treinador_principal"} />
         ) : (profile.role === "treinador_principal" || profile.role === "staff") && activeArea === "Painel inicial" ? (
           <div className="content sports-dashboard">
             <section className="welcome-panel sports-dashboard-welcome">
