@@ -34,6 +34,9 @@ describe("Utilização e limites", () => {
           },
           apiCountsAvailable: true,
           requestCountAvailable: true,
+          databaseSizeBytes: 524288000,
+          storageSizeBytes: 104857600,
+          storageSnapshotAvailable: true,
           retrievedAt: "2026-11-27T10:01:00Z",
         },
       },
@@ -46,6 +49,9 @@ describe("Utilização e limites", () => {
     expect(screen.getByText("Autenticação")).toBeInTheDocument();
     expect(screen.getAllByText("840")).toHaveLength(2);
     expect(screen.getByText("Histórico de utilização")).toBeInTheDocument();
+    expect(screen.getByText("Ocupação atual")).toBeInTheDocument();
+    expect(screen.getByText("500 MB")).toBeInTheDocument();
+    expect(screen.getByText("100 MB")).toBeInTheDocument();
     expect(supabase.functions.invoke).toHaveBeenCalledWith("monitor-platform-usage", { body: {} });
   });
 
