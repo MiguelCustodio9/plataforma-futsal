@@ -39,6 +39,8 @@ describe("Segurança e atividade", () => {
     render(<SecurityActivity />);
     expect(await screen.findAllByText("Conta de teste")).not.toHaveLength(0);
     expect(screen.getByText("Confirmado")).toBeInTheDocument();
+    expect(screen.getByText("1 de 1 contas")).toBeInTheDocument();
+    expect(document.querySelector(".security-activity-scroll")).toBeInTheDocument();
     expect(screen.getByText("Conta suspensa")).toBeInTheDocument();
     expect(supabase.functions.invoke).toHaveBeenCalledWith("manage-platform-access", {
       body: { action: "security_overview" },
