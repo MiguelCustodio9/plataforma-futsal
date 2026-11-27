@@ -792,3 +792,24 @@ input[type="color"]::-moz-color-swatch {
 .usage-risk-critical .usage-quota-track > span,.usage-risk-reached .usage-quota-track > span { background:#ef6464; }
 .usage-risk-unavailable .usage-quota-heading > strong { background:rgba(148,163,184,.13); color:#cbd5e1; }
 @media(max-width:700px) { .usage-quota-grid { grid-template-columns:1fr; } }
+
+
+/* Painel desportivo partilhado — Treinador Principal e Staff */
+.sports-dashboard { padding-top: 30px; }
+.sports-dashboard-welcome { min-height: 245px; }
+.sports-dashboard-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; }
+.sports-dashboard-card,.sports-dashboard-panel { min-width:0; padding:17px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.sports-dashboard-card { display:flex; flex-direction:column; min-height:205px; }
+.sports-dashboard-card-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.sports-dashboard-icon { width:32px; height:32px; display:grid; place-items:center; border-radius:9px; background:rgba(0,117,73,.16); color:#8ed6ad; font-size:17px; }
+.sports-dashboard-status { display:inline-flex; align-items:center; width:max-content; max-width:100%; padding:5px 8px; border:1px solid rgba(169,199,182,.18); border-radius:999px; color:#b6c8bd; background:rgba(148,163,184,.08); font-size:9px; font-weight:700; letter-spacing:.025em; white-space:nowrap; }
+.sports-dashboard-card h3,.sports-dashboard-panel h3 { margin:15px 0 6px; font:600 14px "Space Grotesk",sans-serif; }
+.sports-dashboard-card p,.sports-dashboard-panel p { margin:0; color:#c3d9cb; font-size:11px; line-height:1.55; }
+.sports-dashboard-card small { margin-top:auto; padding-top:12px; color:#91ad9b; font-size:9px; line-height:1.5; }
+.sports-dashboard-lower { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; }
+.sports-dashboard-panel > div { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.sports-dashboard-panel h3 { margin:0; }
+.sports-dashboard-panel p { margin-top:12px; }
+.sports-dashboard-note { margin:20px 0 0; padding:14px 16px; border:1px dashed rgba(169,199,182,.25); border-radius:10px; color:var(--muted); font-size:10px; line-height:1.65; }
+@media(max-width:1100px) { .sports-dashboard-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) { .sports-dashboard-grid,.sports-dashboard-lower { grid-template-columns:1fr; } .sports-dashboard-card { min-height:180px; } .sports-dashboard { padding-top:20px; } }
