@@ -94,6 +94,7 @@ type PlatformAccount = {
   status: "ativo" | "convite_pendente" | "suspenso" | "arquivado";
   created_at: string;
   last_sign_in_at: string;
+  staff_member_id?: string | null;
 };
 
 function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
@@ -230,9 +231,14 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     setError("");
     setNotice("");
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
-        body: { action: "resend_trainer_invite", targetProfileId: inviteTarget.id },
-      });
+      const isStaffAccount = inviteTarget.role === "staff";
+      const { data, error: invokeError } = isStaffAccount
+        ? await supabase.functions.invoke("manage-staff-account", {
+            body: { action: "resend_invite", staffMemberId: inviteTarget.staff_member_id },
+          })
+        : await supabase.functions.invoke("manage-platform-access", {
+            body: { action: "resend_trainer_invite", targetProfileId: inviteTarget.id },
+          });
       if (invokeError) {
         if (invokeError.context instanceof Response) {
           try {
@@ -309,10 +315,10 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
                 <div><span className={`status-pill status-${statusLabel(account.status).toLocaleLowerCase("pt-PT").replaceAll(" ", "-")}`}>{statusLabel(account.status)}</span></div>
                 <div className="access-last-seen">{account.last_sign_in_at ? new Date(account.last_sign_in_at).toLocaleString("pt-PT") : "Ainda sem sessão"}</div>
                 <div className="staff-actions access-actions">
-                  {account.role === "treinador_principal" && account.status === "convite_pendente" && <button onClick={() => setInviteTarget(account)}>Reenviar convite</button>}
+                  {["treinador_principal", "staff"].includes(account.role) && account.status === "convite_pendente" && (account.role !== "staff" || Boolean(account.staff_member_id)) && <button onClick={() => setInviteTarget(account)}>Reenviar convite</button>}
                   {account.id !== currentProfileId && account.status === "ativo" && <button onClick={() => { setSelectedAccount(account); setNextStatus("suspenso"); }}>Suspender</button>}
                   {account.id !== currentProfileId && account.status === "suspenso" && <button onClick={() => { setSelectedAccount(account); setNextStatus("ativo"); }}>Reativar</button>}
-                  {!((account.role === "treinador_principal" && account.status === "convite_pendente") || (account.id !== currentProfileId && ["ativo", "suspenso"].includes(account.status))) && <span className="access-no-action">—</span>}
+                  {!((["treinador_principal", "staff"].includes(account.role) && account.status === "convite_pendente" && (account.role !== "staff" || Boolean(account.staff_member_id))) || (account.id !== currentProfileId && ["ativo", "suspenso"].includes(account.status))) && <span className="access-no-action">—</span>}
                 </div>
               </article>
             ))}
@@ -325,7 +331,7 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
       {inviteTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setInviteTarget(null); }}>
         <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="resend-trainer-title">
           <div className="modal-heading"><div><span className="eyebrow">GESTÃO DE CONVITES</span><h2 id="resend-trainer-title">Reenviar convite</h2></div><button className="icon-button" onClick={() => setInviteTarget(null)} aria-label="Fechar" disabled={busy}>×</button></div>
-          <p>Será enviado um novo convite para <strong>{inviteTarget.display_name}</strong> ({inviteTarget.email}). O convite anterior será invalidado e a ficha Staff e a função de Treinador Principal serão preservadas.</p>
+          <p>Será enviado um novo convite para <strong>{inviteTarget.display_name}</strong> ({inviteTarget.email}). O convite anterior será invalidado e a ficha Staff, as funções e o histórico serão preservados.</p>
           <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setInviteTarget(null)} disabled={busy}>Cancelar</button><button type="button" className="primary-button" onClick={() => void resendTrainerInvite()} disabled={busy}>{busy ? "A enviar…" : "Confirmar reenvio"}</button></div>
         </section>
       </div>}
