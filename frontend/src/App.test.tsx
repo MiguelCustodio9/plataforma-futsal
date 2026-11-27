@@ -187,6 +187,31 @@ describe("plataforma de futsal", () => {
     await waitForDialogToClose();
   });
 
+  it("permite ao Administrador Principal reenviar um convite pendente de Staff", async () => {
+    mockAccessAccounts.push({
+      id: "staff-pending-profile",
+      display_name: "Elemento Staff Pendente",
+      email: "staff.pendente@exemplo.pt",
+      role: "staff",
+      status: "convite_pendente",
+      staff_member_id: "staff-member-pending",
+      created_at: "2026-11-26T10:00:00Z",
+      last_sign_in_at: "",
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
+    expect(await screen.findByText("Elemento Staff Pendente")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reenviar convite" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/ficha Staff, as funções e o histórico serão preservados/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar reenvio" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-staff-account", {
+      body: { action: "resend_invite", staffMemberId: "staff-member-pending" },
+    }));
+    await waitForDialogToClose();
+  });
+
   it("permite suspender uma conta a partir da Gestão de acessos com confirmação", async () => {
     mockAccessAccounts.push({
       id: "staff-account-2",
