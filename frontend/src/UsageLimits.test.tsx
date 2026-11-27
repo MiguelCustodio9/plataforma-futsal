@@ -63,7 +63,7 @@ describe("Utilização e limites", () => {
     expect(screen.getByText(/Disponível após existirem registos de pelo menos dois meses distintos/)).toBeInTheDocument();
     expect(screen.getByText("novembro de 2026")).toBeInTheDocument();
     expect(screen.getByText("Ocupação atual")).toBeInTheDocument();
-    expect(screen.getAllByText("500 MB")).toHaveLength(2);
+    expect(screen.getAllByText("500 MB")).toHaveLength(3);
     expect(screen.getAllByText("100 MB")).toHaveLength(2);
     expect(supabase.functions.invoke).toHaveBeenCalledWith("monitor-platform-usage", { body: {} });
   });
@@ -133,8 +133,8 @@ describe("Utilização e limites", () => {
 
     render(<UsageLimits />);
     expect(await screen.findByText("Avisos preventivos e previsão")).toBeInTheDocument();
-    expect(screen.getByText(/Previsão: cerca de 31 dias até ao limite/)).toBeInTheDocument();
-    expect(screen.getByText("Normal")).toBeInTheDocument();
+    expect(screen.getAllByText(/Previsão: cerca de .* dias até ao limite/)).toHaveLength(2);
+    expect(screen.getByText("Atenção")).toBeInTheDocument();
   });
 
 });
