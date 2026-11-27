@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.manage-staff-account]
 verify_jwt = true
+
+[functions.bootstrap-first-admin]
+verify_jwt = false
