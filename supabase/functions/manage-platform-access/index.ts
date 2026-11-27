@@ -229,7 +229,7 @@ Deno.serve(async (request) => {
     }
 
     const { data: staffMember, error: staffError } = await admin.from("staff_members")
-      .select("id, profile_id, account_deleted_at").eq("profile_id", targetProfileId).maybeSingle();
+      .select("id, profile_id, account_deleted_at, email").eq("profile_id", targetProfileId).maybeSingle();
     if (staffError || !staffMember) {
       return respond(409, { error: "Não foi encontrada a ficha Staff associada. A conta não foi alterada." });
     }
