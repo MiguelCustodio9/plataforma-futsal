@@ -31,4 +31,5 @@ jobs:
           supabase functions deploy accept-staff-invite --project-ref tuimyjeuykecyxbawwlz --yes
           supabase functions deploy manage-staff-account --project-ref tuimyjeuykecyxbawwlz --yes
           supabase functions deploy manage-platform-access --project-ref tuimyjeuykecyxbawwlz --yes
+          supabase functions deploy monitor-platform-usage --project-ref tuimyjeuykecyxbawwlz --yes
           supabase functions deploy bootstrap-first-admin --project-ref tuimyjeuykecyxbawwlz --yes
