@@ -8,12 +8,14 @@ on:
       - "supabase/migrations/**"
       - "supabase/config.toml"
       - ".github/workflows/validate-supabase.yml"
+      - ".github/workflows/deploy-supabase-functions.yml"
   pull_request:
     paths:
       - "supabase/functions/**"
       - "supabase/migrations/**"
       - "supabase/config.toml"
       - ".github/workflows/validate-supabase.yml"
+      - ".github/workflows/deploy-supabase-functions.yml"
   workflow_dispatch:
 
 permissions:
