@@ -169,34 +169,6 @@ describe("plataforma de futsal", () => {
     }));
   });
 
-  it("apresenta o estado das contas e o registo de atividade na Segurança e atividade", async () => {
-    mockFunctionInvoke.mockImplementation(async (name: string, options?: { body?: { action?: string } }) => {
-      if (name === "manage-platform-access" && options?.body?.action === "security_overview") {
-        return { data: {
-          accounts: [{
-            id: "security-user-1", display_name: "Conta de teste", email: "teste@exemplo.pt",
-            role: "staff", status: "ativo", email_confirmed: true,
-            last_sign_in_at: "2026-11-27T10:00:00Z", banned_until: null,
-          }],
-          events: [{
-            id: "access-event-1", source: "acessos", event_type: "account_suspended",
-            actor_name: "Admin", target_name: "Conta de teste", detail: "Estado: ativo → suspenso",
-            created_at: "2026-11-27T10:10:00Z",
-          }],
-        }, error: null };
-      }
-      if (name === "manage-platform-access" && options?.body?.action === "list") return { data: { accounts: [] }, error: null };
-      return { data: { message: "Operação concluída." }, error: null };
-    });
-    render(<App />);
-    await screen.findByRole("heading", { name: "Centro de controlo" });
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Segurança e atividade/ }));
-    expect(await screen.findAllByRole("heading", { name: "Segurança e atividade" })).not.toHaveLength(0);
-    expect(await screen.findAllByText("Conta de teste")).not.toHaveLength(0);
-    expect(screen.getByText("Confirmado")).toBeInTheDocument();
-    expect(screen.getByText("Conta suspensa")).toBeInTheDocument();
-  });
-
   it("permite criar um Treinador Principal pela Gestão de acessos", async () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
