@@ -15,6 +15,9 @@ type UsageMetrics = {
   latest: UsagePoint | null;
   apiCountsAvailable: boolean;
   requestCountAvailable: boolean;
+  databaseSizeBytes: number | null;
+  storageSizeBytes: number | null;
+  storageSnapshotAvailable: boolean;
   retrievedAt: string;
 };
 
@@ -27,6 +30,15 @@ type UsageResponse = {
 
 const numberLabel = (value: number | null | undefined) =>
   value === null || value === undefined ? "Não disponibilizado" : new Intl.NumberFormat("pt-PT").format(value);
+
+const bytesLabel = (value: number | null | undefined) => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Não disponibilizado";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1; }
+  return `${new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 2 }).format(size)} ${units[unit]}`;
+};
 
 const dateLabel = (value: string | null) => {
   if (!value) return "Data indisponível";
@@ -93,6 +105,14 @@ export function UsageLimits() {
               </section>
 
               <section className="usage-section">
+                <div className="usage-section-heading"><div><h3>Ocupação atual</h3><p>Leitura direta da base de dados e dos ficheiros registados no Storage; não representa a média faturável do ciclo.</p></div></div>
+                <div className="usage-metric-grid">
+                  <article className="usage-metric-card"><span>Base de dados</span><strong>{bytesLabel(data.metrics.databaseSizeBytes)}</strong><small>Dimensão atual da base de dados PostgreSQL.</small></article>
+                  <article className="usage-metric-card"><span>Storage</span><strong>{bytesLabel(data.metrics.storageSizeBytes)}</strong><small>Soma dos tamanhos dos objetos registados nos buckets.</small></article>
+                </div>
+              </section>
+
+              <section className="usage-section">
                 <div className="usage-section-heading"><div><h3>Pedidos por serviço</h3><p>Valores do registo mais recente disponibilizado pela Management API.</p></div></div>
                 <div className="usage-metric-grid">
                   {cards.map((card) => <article className="usage-metric-card" key={card.label}><span>{card.label}</span><strong>{numberLabel(card.value)}</strong><small>{card.description}</small></article>)}
@@ -103,7 +123,7 @@ export function UsageLimits() {
                 <div className="usage-section-heading"><div><h3>Histórico de utilização</h3><p>Até 31 observações recentes recebidas do fornecedor. Não são estimativas.</p></div></div>
                 {data.metrics.apiCounts.length ? <div className="usage-history-list">{data.metrics.apiCounts.slice().reverse().map((point, index) => <article className="usage-history-row" key={point.timestamp ?? index}><time>{dateLabel(point.timestamp)}</time><span>Auth: <strong>{numberLabel(point.authRequests)}</strong></span><span>REST: <strong>{numberLabel(point.restRequests)}</strong></span><span>Realtime: <strong>{numberLabel(point.realtimeRequests)}</strong></span><span>Storage: <strong>{numberLabel(point.storageRequests)}</strong></span></article>)}</div> : <div className="empty-state"><strong>O fornecedor não devolveu observações históricas.</strong></div>}
               </section>
-              <section className="usage-section usage-not-yet-measured"><strong>Indicadores ainda não ligados</strong><p>O âmbito atual do token permite consultar contagens de pedidos da API. O espaço ocupado pela base de dados e pelo Storage, utilizadores ativos mensais, transferência de dados, invocações de Edge Functions e métricas de sincronização ainda não são apresentados como valores reais. Não são estimados nem substituídos por zeros.</p></section>
+              <section className="usage-section usage-not-yet-measured"><strong>Indicadores ainda não ligados</strong><p>Utilizadores ativos mensais, transferência de dados, invocações de Edge Functions e métricas de sincronização ainda não estão ligados. A ocupação atual da base de dados e do Storage só aparece quando a consulta agregada está disponível. Estes valores não são confundidos com as médias de consumo usadas pelo Supabase para faturação.</p></section>
               <p className="usage-updated-at">Última consulta: {dateLabel(data.metrics.retrievedAt)}</p>
             </>
           ) : data.status === "not_configured" ? (
