@@ -83,8 +83,8 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
     if (gr.error) throw gr.error;
     if (cr.error) throw cr.error;
     return {
-      guardians: (gr.data ?? []).map((x: any) => ({...x,phone:x.phone ?? "",email:x.email ?? ""})) as Guardian[],
-      career: (cr.data ?? []).map((x: any) => ({...x,team_name:x.team_name ?? "",season_label:x.season_label ?? "",start_date:x.start_date ?? "",end_date:x.end_date ?? ""})) as CareerEntry[],
+      guardians: (gr.data ?? []).map((x) => ({...x,phone:x.phone ?? "",email:x.email ?? ""})) as Guardian[],
+      career: (cr.data ?? []).map((x) => ({...x,team_name:x.team_name ?? "",season_label:x.season_label ?? "",start_date:x.start_date ?? "",end_date:x.end_date ?? ""})) as CareerEntry[],
     };
   };
   const openNew = () => {
