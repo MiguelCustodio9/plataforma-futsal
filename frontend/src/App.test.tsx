@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke, mockAccessAccounts } = vi.hoisted(() => ({
+const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke, mockAccessAccounts, mockUserMetadata } = vi.hoisted(() => ({
   mockProfile: { role: "administrador_principal", status: "ativo" },
+  mockUserMetadata: {} as Record<string, string>,
   mockAccessAccounts: [] as Array<{ id: string; display_name: string; email: string; role: string; status: string; created_at: string; last_sign_in_at: string }>,
   mockStaffOrder: vi.fn().mockResolvedValue({ data: [], error: null }),
   mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
@@ -57,7 +58,7 @@ vi.mock("./lib/supabase", () => ({
       };
     }),
     auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "test-user" } } }, error: null }),
+      getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "test-user", user_metadata: mockUserMetadata } } }, error: null }),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       signInWithPassword: vi.fn(),
       resetPasswordForEmail: vi.fn(),
@@ -81,6 +82,7 @@ afterEach(() => {
   mockProfile.role = "administrador_principal";
   mockProfile.status = "ativo";
   mockAccessAccounts.length = 0;
+  for (const key of Object.keys(mockUserMetadata)) delete mockUserMetadata[key];
   mockStaffOrder.mockResolvedValue({ data: [], error: null });
   mockStaffInsert.mockResolvedValue({ data: { id: "staff-123" }, error: null });
   mockRoleInsert.mockResolvedValue({ error: null });
@@ -375,7 +377,21 @@ describe("definição de palavra-passe", () => {
     expect(screen.getByLabelText("Confirmar palavra-passe")).toBeInTheDocument();
   });
 
+  it("conclui o convite do primeiro Administrador sem chamar a ativação Staff", async () => {
+    mockUserMetadata.invite_kind = "initial_admin";
+    window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Definir palavra-passe" });
+    fireEvent.change(screen.getByLabelText("Nova palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.change(screen.getByLabelText("Confirmar palavra-passe"), { target: { value: "FutsalSeguro2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar palavra-passe" }));
+    await waitFor(() => expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: "FutsalSeguro2026!" }));
+    expect(mockFunctionInvoke).not.toHaveBeenCalledWith("accept-staff-invite", { body: {} });
+    expect(await screen.findByRole("heading", { name: "Centro de controlo" })).toBeInTheDocument();
+  });
+
   it("ativa o perfil de Treinador Principal depois de definir a palavra-passe do convite", async () => {
+    mockUserMetadata.invite_kind = "staff";
     mockProfile.role = "treinador_principal";
     mockProfile.status = "convite_pendente";
     window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
@@ -389,6 +405,7 @@ describe("definição de palavra-passe", () => {
   });
 
   it("ativa o perfil Staff depois de definir a palavra-passe do convite", async () => {
+    mockUserMetadata.invite_kind = "staff";
     mockProfile.role = "staff";
     mockProfile.status = "convite_pendente";
     window.history.replaceState(null, document.title, "/#access_token=test&type=invite");
