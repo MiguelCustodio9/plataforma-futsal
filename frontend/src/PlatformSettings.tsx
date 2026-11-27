@@ -17,6 +17,7 @@ type Settings = {
 type AuditRow = {
   id: number;
   actor_profile_id: string | null;
+  actor_display_name?: string;
   setting_key: string;
   previous_value: unknown;
   new_value: unknown;
@@ -178,6 +179,10 @@ export function PlatformSettings() {
   };
   const resetDraft = () => {
     setDraft(settings);
+    setClubFile(null);
+    setTeamFile(null);
+    setClubPreview("");
+    setTeamPreview("");
     setShowConfirmation(false);
   };
 
