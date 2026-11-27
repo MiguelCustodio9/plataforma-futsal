@@ -403,8 +403,28 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     void testSupabaseConnection();
   }, []);
 
-
   const [activeArea, setActiveArea] = useState("Painel inicial");
+
+  useEffect(() => {
+    const featureKeyByArea: Record<string, string> = {
+      "Painel inicial": "dashboard",
+      Staff: "staff",
+      "Gestão de acessos": "access_management",
+      "Configurações da plataforma": "platform_settings",
+      "Segurança e atividade": "security_activity",
+      "Utilização e limites": "usage_limits",
+    };
+    const featureKey = featureKeyByArea[activeArea];
+    if (!featureKey) return;
+
+    void supabase.rpc("record_platform_feature_usage", { p_feature_key: featureKey })
+      .then(({ error }) => {
+        if (error) console.warn("Não foi possível registar a utilização da funcionalidade:", error.message);
+      })
+      .catch((error: unknown) => {
+        console.warn("Falha ao registar a utilização da funcionalidade:", error);
+      });
+  }, [activeArea]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffError, setStaffError] = useState("");
