@@ -37,6 +37,14 @@ describe("Utilização e limites", () => {
           databaseSizeBytes: 524288000,
           storageSizeBytes: 104857600,
           storageSnapshotAvailable: true,
+          monthlyHistory: [{
+            snapshot_month: "2026-11-01",
+            database_size_bytes: 524288000,
+            storage_size_bytes: 104857600,
+            api_requests_count: 12345,
+            captured_at: "2026-11-27T10:01:00Z",
+          }],
+          monthlyHistoryAvailable: true,
           retrievedAt: "2026-11-27T10:01:00Z",
         },
       },
@@ -49,6 +57,8 @@ describe("Utilização e limites", () => {
     expect(screen.getByText("Autenticação")).toBeInTheDocument();
     expect(screen.getAllByText("840")).toHaveLength(2);
     expect(screen.getByText("Histórico de utilização")).toBeInTheDocument();
+    expect(screen.getByText("Histórico mensal persistente")).toBeInTheDocument();
+    expect(screen.getByText("novembro de 2026")).toBeInTheDocument();
     expect(screen.getByText("Ocupação atual")).toBeInTheDocument();
     expect(screen.getByText("500 MB")).toBeInTheDocument();
     expect(screen.getByText("100 MB")).toBeInTheDocument();
