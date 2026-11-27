@@ -214,6 +214,61 @@ Deno.serve(async (request) => {
     return respond(200, { message: "Novo convite de Treinador Principal enviado com sucesso." });
   }
 
+  if (payload.action === "delete_account") {
+    if (!isUuid(payload.targetProfileId)) return respond(400, { error: "Conta inválida." });
+    const targetProfileId = payload.targetProfileId;
+    if (targetProfileId === authData.user.id) {
+      return respond(409, { error: "Não podes eliminar a tua própria conta." });
+    }
+
+    const { data: target, error: targetError } = await admin.from("profiles")
+      .select("id, role, status").eq("id", targetProfileId).maybeSingle();
+    if (targetError || !target) return respond(404, { error: "Conta não encontrada." });
+    if (!["staff", "treinador_principal"].includes(target.role)) {
+      return respond(409, { error: "Só é possível eliminar contas Staff ou Treinador Principal nesta secção." });
+    }
+
+    const { data: staffMember, error: staffError } = await admin.from("staff_members")
+      .select("id, profile_id, account_deleted_at").eq("profile_id", targetProfileId).maybeSingle();
+    if (staffError || !staffMember) {
+      return respond(409, { error: "Não foi encontrada a ficha Staff associada. A conta não foi alterada." });
+    }
+
+    const deletedAt = new Date().toISOString();
+    const { error: detachError } = await admin.from("staff_members").update({
+      profile_id: null,
+      account_deleted_at: deletedAt,
+    }).eq("id", staffMember.id);
+    if (detachError) {
+      console.error("Não foi possível preservar a ficha antes de eliminar a conta:", detachError.message);
+      return respond(500, { error: "Não foi possível preparar a preservação da ficha Staff. A conta mantém-se intacta." });
+    }
+
+    const { error: deleteError } = await admin.auth.admin.deleteUser(targetProfileId);
+    if (deleteError) {
+      await admin.from("staff_members").update({
+        profile_id: targetProfileId,
+        account_deleted_at: staffMember.account_deleted_at,
+      }).eq("id", staffMember.id);
+      console.error("Erro ao eliminar conta de acesso:", deleteError.message);
+      return respond(502, { error: "Não foi possível eliminar a conta. A associação à ficha foi reposta." });
+    }
+
+    const { error: auditError } = await admin.from("platform_access_audit").insert({
+      target_profile_id: targetProfileId,
+      actor_profile_id: authData.user.id,
+      event_type: "account_deleted",
+      previous_status: target.status,
+      new_status: "arquivado",
+    });
+    if (auditError) {
+      console.error("Conta eliminada, mas falhou a auditoria:", auditError.message);
+      return respond(500, { error: "A conta foi eliminada e a ficha preservada, mas o registo de auditoria falhou." });
+    }
+
+    return respond(200, { message: "Conta de acesso eliminada. A ficha Staff, as funções e o histórico foram preservados." });
+  }
+
   if (payload.action === "list") {
     const { data: profiles, error: profilesError } = await admin.from("profiles")
       .select("id, display_name, role, status, created_at")
