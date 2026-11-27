@@ -62,7 +62,7 @@ describe("Utilização e limites", () => {
 
     render(<UsageLimits />);
     expect(await screen.findByText("Configuração pendente")).toBeInTheDocument();
-    expect(screen.getByText("SUPABASE_MANAGEMENT_READ_TOKEN")).toBeInTheDocument();
+    expect(screen.getByText("MANAGEMENT_READ_TOKEN")).toBeInTheDocument();
     expect(screen.getByText(/Não partilhes o seu valor/)).toBeInTheDocument();
   });
 
