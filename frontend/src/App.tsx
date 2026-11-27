@@ -800,6 +800,78 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             </section>
             {canManageStaff ? <p className="demo-notice">Os convites são enviados por email aos elementos registados. A ativação da conta acontece depois de definirem a sua palavra-passe.</p> : <p className="demo-notice">Apenas o Administrador Principal e o Treinador Principal podem adicionar, editar, suspender ou reativar elementos do Staff.</p>}{staffError && !staffLoading && <p className="form-error" role="alert">{staffError}</p>}
           </div>
+        ) : (profile.role === "treinador_principal" || profile.role === "staff") && activeArea === "Painel inicial" ? (
+          <div className="content sports-dashboard">
+            <section className="welcome-panel sports-dashboard-welcome">
+              <div className="welcome-copy">
+                <span className="eyebrow">ESPAÇO DESPORTIVO · PAINEL PARTILHADO</span>
+                <h2>O trabalho da equipa, num só lugar.</h2>
+                <p>O Treinador Principal e o Staff consultam o mesmo painel, com a mesma organização e os mesmos indicadores. A informação será apresentada à medida que os respetivos módulos forem implementados e ligados aos dados reais.</p>
+              </div>
+              <div className="court-art" aria-hidden="true"><div className="court-line center-line" /><div className="court-circle" /><div className="court-box court-box-left" /><div className="court-box court-box-right" /></div>
+            </section>
+
+            <div className="section-heading"><div><span className="eyebrow">ACOMPANHAMENTO DESPORTIVO</span><h2>Resumo da equipa</h2></div><span className="phase-tag">PAINEL PARTILHADO</span></div>
+            <section className="sports-dashboard-grid" aria-label="Indicadores desportivos">
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">◷</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Próximo jogo</h3><p>Adversário, competição, data, hora, pavilhão e informação de preparação.</p><small>Disponível após implementação dos módulos Jogos e Competições.</small>
+              </article>
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">▣</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Último resultado</h3><p>Resultado final e resumo do encontro mais recente.</p><small>Não existem resultados apresentados enquanto o módulo Jogos não estiver ligado.</small>
+              </article>
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">◷</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Próximos treinos</h3><p>Calendário das sessões, horários e informação de cada treino.</p><small>Disponível após implementação do módulo Treinos.</small>
+              </article>
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">◎</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Convocatórias</h3><p>Estado das convocatórias e jogadoras selecionadas.</p><small>Sem convocatórias fictícias ou valores de demonstração.</small>
+              </article>
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">♡</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Indisponibilidades</h3><p>Jogadoras lesionadas e outras indisponibilidades registadas.</p><small>Disponível quando o Plantel e os respetivos estados estiverem implementados.</small>
+              </article>
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">▤</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Classificações</h3><p>Posição e situação da equipa nas competições oficiais.</p><small>Os jogos amigáveis não serão misturados nas classificações oficiais.</small>
+              </article>
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">⌁</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Estatísticas coletivas</h3><p>Indicadores de ataque, defesa, posse de bola e evolução dos resultados.</p><small>Os indicadores só serão calculados a partir de registos reais.</small>
+              </article>
+              <article className="sports-dashboard-card">
+                <div className="sports-dashboard-card-top"><span className="sports-dashboard-icon" aria-hidden="true">↗</span><span className="sports-dashboard-status">A preparar</span></div>
+                <h3>Destaques individuais</h3><p>Marcadoras, assistências, minutos, avaliações e evolução das jogadoras.</p><small>Sem rankings ou comparações enquanto não houver dados suficientes.</small>
+              </article>
+            </section>
+
+            <div className="section-heading"><div><span className="eyebrow">ANÁLISE E ACOMPANHAMENTO</span><h2>Evolução e informação</h2></div></div>
+            <section className="sports-dashboard-lower">
+              <article className="sports-dashboard-panel">
+                <div><span className="sports-dashboard-status">A preparar</span><h3>Comparação entre épocas</h3></div>
+                <p>Comparação da época ativa com épocas anteriores, preservando os dados históricos e respeitando as diferenças entre plantéis e competições.</p>
+              </article>
+              <article className="sports-dashboard-panel">
+                <div><span className="sports-dashboard-status">A preparar</span><h3>Alertas e notificações</h3></div>
+                <p>Avisos de avaliações, assiduidade e atividade recente, com categorias predefinidas e histórico exclusivamente dentro da plataforma.</p>
+              </article>
+            </section>
+
+            <div className="section-heading"><div><span className="eyebrow">ACESSO RÁPIDO</span><h2>Áreas de trabalho</h2></div></div>
+            <section className="module-grid sports-dashboard-shortcuts" aria-label="Acessos rápidos às áreas desportivas">
+              {["Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos", "Biblioteca de vídeos"].map((item, index) => (
+                <button type="button" className="module-card admin-shortcut" key={item} onClick={() => setActiveArea(item)}>
+                  <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item}</h3>
+                  <p>{item === "Staff" ? (canManageStaff ? "Consultar e gerir a equipa técnica." : "Consultar a equipa técnica.") : "Abrir a área de trabalho."}</p>
+                  <span className="module-state">{item === "Staff" ? "Disponível" : "A preparar"}</span>
+                </button>
+              ))}
+            </section>
+            <p className="sports-dashboard-note">Os cartões e indicadores têm a mesma estrutura para o Treinador Principal e para o Staff. As permissões de gestão continuam a depender do perfil. Não são apresentados zeros, estimativas ou estatísticas inventadas.</p>
+            <footer className="page-footer"><span>Plataforma Futsal</span><span>Painel desportivo partilhado · Dados reais à medida da implementação.</span></footer>
+          </div>
         ) : (
           <div className="content">
             <section className="welcome-panel"><div className="welcome-copy"><span className="eyebrow">BEM-VINDO À FUNDAÇÃO</span><h2>O próximo nível da gestão de futsal começa aqui.</h2><p>A estrutura técnica está a ser preparada. Os módulos serão ativados progressivamente, depois de implementados e testados.</p></div><div className="court-art" aria-hidden="true"><div className="court-line center-line" /><div className="court-circle" /><div className="court-box court-box-left" /><div className="court-box court-box-right" /></div></section>
