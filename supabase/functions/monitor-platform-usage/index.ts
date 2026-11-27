@@ -82,6 +82,9 @@ Deno.serve(async (request) => {
   const apiCounts = apiCountsResponse.ok ? await apiCountsResponse.json().catch(() => null) : null;
   const requestCount = requestCountResponse.ok ? await requestCountResponse.json().catch(() => null) : null;
 
+  const requestCountValue = Array.isArray(requestCount?.result) && requestCount.result.length
+    && Number.isFinite(requestCount.result[0]?.count) ? requestCount.result[0].count : null;
+
   let databaseSizeBytes: number | null = null;
   let storageSizeBytes: number | null = null;
   let monthlyHistory: MonthlySnapshot[] = [];
@@ -120,8 +123,6 @@ Deno.serve(async (request) => {
     restRequests: Number.isFinite(point.total_rest_requests) ? point.total_rest_requests : null,
     storageRequests: Number.isFinite(point.total_storage_requests) ? point.total_storage_requests : null,
   }));
-  const requestCountValue = Array.isArray(requestCount?.result) && requestCount.result.length
-    && Number.isFinite(requestCount.result[0]?.count) ? requestCount.result[0].count : null;
   const apiCountsAvailable = apiCountsResponse.ok && normalizedPoints.length > 0;
   const requestCountAvailable = requestCountResponse.ok && requestCountValue !== null;
 
