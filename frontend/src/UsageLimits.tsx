@@ -112,7 +112,7 @@ export function UsageLimits() {
               <ol>
                 <li>Cria um token pessoal limitado a este projeto no Supabase.</li>
                 <li>Concede apenas a permissão <code>Usage Analytics · Read</code> (âmbito <code>analytics_usage_read</code>).</li>
-                <li>Em Project Settings → Edge Functions → Secrets, adiciona o segredo <code>SUPABASE_MANAGEMENT_READ_TOKEN</code> com o valor do token.</li>
+                <li>Em Project Settings → Edge Functions → Secrets, adiciona o segredo <code>MANAGEMENT_READ_TOKEN</code> com o valor do token.</li>
                 <li>Guarda o segredo e volta a carregar esta página. Não é necessário publicar novamente a função.</li>
               </ol>
               <p>O token nunca deve ser colocado no GitHub, no código frontend ou numa mensagem. Não partilhes o seu valor.</p>
