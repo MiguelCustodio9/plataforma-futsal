@@ -179,7 +179,9 @@ Deno.serve(async (request) => {
   const runtimeLogsAvailable = runtimeLogsResponse.ok && !runtimeLogsPayload?.error;
   const edgeFunctionMonitoring = {
     available: edgeLogsAvailable && runtimeLogsAvailable,
-    partial: edgeLogsAvailable || runtimeLogsAvailable,
+    partial: edgeLogsAvailable !== runtimeLogsAvailable,
+    functionLogsHttpStatus: functionLogsResponse.status,
+    runtimeLogsHttpStatus: runtimeLogsResponse.status,
     status: [functionLogsResponse.status, runtimeLogsResponse.status].includes(403) ? "permission_denied"
       : [functionLogsResponse.status, runtimeLogsResponse.status].includes(402) ? "plan_restriction"
       : [functionLogsResponse.status, runtimeLogsResponse.status].includes(429) ? "rate_limited"
