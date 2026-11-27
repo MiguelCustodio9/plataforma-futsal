@@ -95,10 +95,10 @@ Deno.serve(async (request) => {
     const { data: snapshot, error: snapshotError } = await metricsClient
       .rpc("get_platform_usage_storage_snapshot").maybeSingle();
     if (!snapshotError && snapshot) {
-      databaseSizeBytes = Number.isFinite(Number(snapshot.database_size_bytes))
-        ? Number(snapshot.database_size_bytes) : null;
-      storageSizeBytes = Number.isFinite(Number(snapshot.storage_size_bytes))
-        ? Number(snapshot.storage_size_bytes) : null;
+      databaseSizeBytes = snapshot.database_size_bytes !== null && snapshot.database_size_bytes !== undefined
+        && Number.isFinite(Number(snapshot.database_size_bytes)) ? Number(snapshot.database_size_bytes) : null;
+      storageSizeBytes = snapshot.storage_size_bytes !== null && snapshot.storage_size_bytes !== undefined
+        && Number.isFinite(Number(snapshot.storage_size_bytes)) ? Number(snapshot.storage_size_bytes) : null;
     }
     const { data: historyRows, error: historyError } = await metricsClient.rpc(
       "record_platform_usage_monthly_snapshot",
