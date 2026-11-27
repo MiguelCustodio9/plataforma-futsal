@@ -700,7 +700,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           {visibleModules.map((module) => (
             <button key={module} className={activeArea === module ? "nav-link active" : "nav-link"} onClick={() => setActiveArea(module)} aria-current={activeArea === module ? "page" : undefined}>
               <span aria-hidden="true">◇</span> {module}
-              {module !== "Staff" && module !== "Gestão de acessos" && module !== "Configurações da plataforma" && module !== "Segurança e atividade" && module !== "Utilização e limites" && <span className="soon">A preparar</span>}
+              {module !== "Plantel" && module !== "Staff" && module !== "Gestão de acessos" && module !== "Configurações da plataforma" && module !== "Segurança e atividade" && module !== "Utilização e limites" && <span className="soon">A preparar</span>}
             </button>
           ))}
         </nav>
@@ -709,7 +709,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 
       <section className="main-area" id="inicio">
         <header className="topbar">
-          <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Staff" ? "Gestão de Staff" : activeArea === "Gestão de acessos" ? "Gestão de acessos" : activeArea === "Configurações da plataforma" ? "Configurações da plataforma" : activeArea === "Segurança e atividade" ? "Segurança e atividade" : activeArea === "Utilização e limites" ? "Utilização e limites" : "Centro de controlo"}</h1></div>
+          <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Plantel" ? "Plantel" : activeArea === "Staff" ? "Gestão de Staff" : activeArea === "Gestão de acessos" ? "Gestão de acessos" : activeArea === "Configurações da plataforma" ? "Configurações da plataforma" : activeArea === "Segurança e atividade" ? "Segurança e atividade" : activeArea === "Utilização e limites" ? "Utilização e limites" : "Centro de controlo"}</h1></div>
           <div className="topbar-meta"><div className="account-identity"><strong>{profile.displayName}</strong><span>{roleLabels[profile.role]}</span></div><span className="environment">SESSÃO AUTENTICADA</span><button className="sign-out-button" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button></div>
         </header>
 
@@ -868,7 +868,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
                 <button type="button" className="module-card admin-shortcut" key={item} onClick={() => setActiveArea(item)}>
                   <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item}</h3>
                   <p>{item === "Staff" ? (canManageStaff ? "Consultar e gerir a equipa técnica." : "Consultar a equipa técnica.") : "Abrir a área de trabalho."}</p>
-                  <span className="module-state">{item === "Staff" ? "Disponível" : "A preparar"}</span>
+                  <span className="module-state">{["Plantel", "Staff"].includes(item) ? "Disponível" : "A preparar"}</span>
                 </button>
               ))}
             </section>
