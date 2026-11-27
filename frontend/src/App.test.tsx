@@ -137,6 +137,32 @@ describe("plataforma de futsal", () => {
     expect(navigation.queryByRole("button", { name: /Gestão de acessos/ })).not.toBeInTheDocument();
   });
 
+  it("apresenta o painel desportivo partilhado ao Treinador Principal, sem dados fictícios", async () => {
+    mockProfile.role = "treinador_principal";
+    render(<App />);
+    expect(await screen.findByRole("heading", { level: 2, name: "Resumo da equipa" })).toBeInTheDocument();
+    expect(screen.getByText("Próximo jogo")).toBeInTheDocument();
+    expect(screen.getByText("Último resultado")).toBeInTheDocument();
+    expect(screen.getByText("Próximos treinos")).toBeInTheDocument();
+    expect(screen.getByText("Classificações")).toBeInTheDocument();
+    expect(screen.getByText("Estatísticas coletivas")).toBeInTheDocument();
+    expect(screen.getByText(/Não são apresentados zeros, estimativas ou estatísticas inventadas/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    expect(await screen.findByText("Não foram encontrados elementos.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
+  });
+
+  it("apresenta a mesma estrutura de painel ao Staff, sem conceder permissões de gestão", async () => {
+    mockProfile.role = "staff";
+    render(<App />);
+    expect(await screen.findByRole("heading", { level: 2, name: "Resumo da equipa" })).toBeInTheDocument();
+    expect(screen.getByText("Próximo jogo")).toBeInTheDocument();
+    expect(screen.getByText("Destaques individuais")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    expect(await screen.findByText("Não foram encontrados elementos.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Adicionar elemento/ })).not.toBeInTheDocument();
+  });
+
   it("abre a Gestão de acessos e carrega a lista global através da função protegida", async () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
