@@ -697,7 +697,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 /* Seta personalizada também nas áreas neutras, não apenas nos botões */
-html, body, body * {
+ :where(html, body, body *) {
   cursor: var(--platform-cursor-arrow), auto;
 }
 
@@ -722,6 +722,6 @@ html, body, body * {
 :where(button, a, [role="button"], input, select, summary)[aria-disabled="true"] {
   cursor: var(--platform-cursor-disabled), not-allowed;
 }
-:where(button, input, [aria-busy="true"]):where(:disabled, [aria-busy="true"]) {
+:where([aria-busy="true"]) {
   cursor: var(--platform-cursor-arrow), wait;
 }
