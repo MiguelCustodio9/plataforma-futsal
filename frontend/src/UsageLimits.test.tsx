@@ -76,24 +76,24 @@ describe("Utilização e limites", () => {
       error: null,
     } as never);
 
-    vi.mocked(supabase.rpc).mockImplementation(async (fnName: string) => {
-      if (fnName === "get_platform_feature_usage") return {
+    vi.mocked(supabase.rpc).mockImplementation(((fnName: string) => {
+      if (fnName === "get_platform_feature_usage") return Promise.resolve({
         data: [
           { feature_key: "staff", event_count: 18 },
           { feature_key: "usage_limits", event_count: 7 },
         ],
         error: null,
-      } as never;
-      if (fnName === "get_platform_connectivity_usage") return {
+      });
+      if (fnName === "get_platform_connectivity_usage") return Promise.resolve({
         data: [
           { event_key: "browser_online", event_count: 5, last_occurred_at: "2026-11-27T10:00:00Z" },
           { event_key: "browser_offline", event_count: 2, last_occurred_at: "2026-11-27T09:00:00Z" },
           { event_key: "supabase_connected", event_count: 8, last_occurred_at: "2026-11-27T10:01:00Z" },
         ],
         error: null,
-      } as never;
-      return { data: [], error: null } as never;
-    });
+      });
+      return Promise.resolve({ data: [], error: null });
+    }) as never);
 
     render(<UsageLimits />);
     expect(await screen.findByText("Monitorização ligada")).toBeInTheDocument();
