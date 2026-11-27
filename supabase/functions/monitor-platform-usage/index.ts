@@ -88,12 +88,18 @@ Deno.serve(async (request) => {
   let databaseSizeBytes: number | null = null;
   let storageSizeBytes: number | null = null;
   let monthlyHistory: MonthlySnapshot[] = [];
+  if (!serviceRoleKey) {
+    console.error("[monitor-platform-usage] SUPABASE_SERVICE_ROLE_KEY não está disponível no ambiente da função.");
+  }
   if (serviceRoleKey) {
     const metricsClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const { data: snapshot, error: snapshotError } = await metricsClient
       .rpc("get_platform_usage_storage_snapshot").maybeSingle();
+    if (snapshotError) {
+      console.error("[monitor-platform-usage] Falha na consulta de ocupação:", snapshotError.message);
+    }
     if (!snapshotError && snapshot) {
       databaseSizeBytes = snapshot.database_size_bytes !== null && snapshot.database_size_bytes !== undefined
         && Number.isFinite(Number(snapshot.database_size_bytes)) ? Number(snapshot.database_size_bytes) : null;
@@ -108,8 +114,12 @@ Deno.serve(async (request) => {
         p_api_requests_count: requestCountValue,
       },
     );
-    if (!historyError && Array.isArray(historyRows)) {
+    if (historyError) {
+      console.error("[monitor-platform-usage] Falha ao gravar/ler histórico mensal:", historyError.message, historyError.code ?? "sem código");
+    } else if (Array.isArray(historyRows)) {
       monthlyHistory = historyRows.filter((row: MonthlySnapshot) => row && typeof row.snapshot_month === "string");
+    } else {
+      console.error("[monitor-platform-usage] A função SQL do histórico não devolveu uma lista.");
     }
   }
 
