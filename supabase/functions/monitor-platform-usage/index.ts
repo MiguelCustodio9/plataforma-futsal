@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const managementToken = Deno.env.get("SUPABASE_MANAGEMENT_READ_TOKEN") ?? "";
+  const managementToken = Deno.env.get("MANAGEMENT_READ_TOKEN") ?? "";
   if (!token || !supabaseUrl || !anonKey) return respond(401, { error: "Sessão inválida." });
 
   const authClient = createClient(supabaseUrl, anonKey, {
