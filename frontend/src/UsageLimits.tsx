@@ -180,22 +180,27 @@ export function UsageLimits() {
 
               <section className="usage-section">
                 <div className="usage-section-heading"><div><h3>Utilização por funcionalidade</h3><p>Contagem agregada de aberturas das áreas nos últimos 30 dias. Não identifica utilizadores nem guarda conteúdo.</p></div></div>
-                {featureUsageAvailable ? featureUsage.length ? (
-                  <div className="usage-metric-grid">
-                    {featureUsage.map((feature) => {
-                      const labels: Record<string, string> = {
-                        dashboard: "Painel inicial",
-                        staff: "Gestão de Staff",
-                        access_management: "Gestão de acessos",
-                        platform_settings: "Configurações da plataforma",
-                        security_activity: "Segurança e atividade",
-                        usage_limits: "Utilização e limites",
-                      };
-                      return <article className="usage-metric-card" key={feature.feature_key}><span>{labels[feature.feature_key] ?? "Outra funcionalidade"}</span><strong>{numberLabel(feature.event_count)}</strong><small>Aberturas registadas · últimos 30 dias</small></article>;
-                    })}
-                  </div>
-                ) : <div className="empty-state"><strong>Ainda não existem dados de utilização por funcionalidade.</strong><p>Os registos começam a ser acumulados quando as áreas são abertas após a aplicação da migration.</p></div>
-                ) : <div className="empty-state"><strong>Indicador temporariamente indisponível.</strong><p>Confirma se a migration de métricas por funcionalidade já foi aplicada.</p></div>}
+                {featureUsageAvailable ? (
+                  featureUsage.length ? (
+                    <div className="usage-metric-grid">
+                      {featureUsage.map((feature) => {
+                        const labels: Record<string, string> = {
+                          dashboard: "Painel inicial",
+                          staff: "Gestão de Staff",
+                          access_management: "Gestão de acessos",
+                          platform_settings: "Configurações da plataforma",
+                          security_activity: "Segurança e atividade",
+                          usage_limits: "Utilização e limites",
+                        };
+                        return <article className="usage-metric-card" key={feature.feature_key}><span>{labels[feature.feature_key] ?? "Outra funcionalidade"}</span><strong>{numberLabel(feature.event_count)}</strong><small>Aberturas registadas · últimos 30 dias</small></article>;
+                      })}
+                    </div>
+                  ) : (
+                    <div className="empty-state"><strong>Ainda não existem dados de utilização por funcionalidade.</strong><p>Os registos começam a ser acumulados quando as áreas são abertas após a aplicação da migration.</p></div>
+                  )
+                ) : (
+                  <div className="empty-state"><strong>Indicador temporariamente indisponível.</strong><p>Confirma se a migration de métricas por funcionalidade já foi aplicada.</p></div>
+                )}
                 <p className="usage-quota-note">Este indicador mede a frequência de utilização das áreas, não o consumo direto de CPU, memória ou tráfego. É uma referência de utilização e não uma medição de custo.</p>
               </section>
 
