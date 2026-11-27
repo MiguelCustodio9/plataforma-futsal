@@ -58,6 +58,9 @@ describe("Utilização e limites", () => {
     expect(screen.getAllByText("840")).toHaveLength(2);
     expect(screen.getByText("Histórico de utilização")).toBeInTheDocument();
     expect(screen.getByText("Histórico mensal persistente")).toBeInTheDocument();
+    expect(screen.getByText("Avisos preventivos e previsão")).toBeInTheDocument();
+    expect(screen.getByText("Limite atingido")).toBeInTheDocument();
+    expect(screen.getByText(/Disponível após existirem registos de pelo menos dois meses distintos/)).toBeInTheDocument();
     expect(screen.getByText("novembro de 2026")).toBeInTheDocument();
     expect(screen.getByText("Ocupação atual")).toBeInTheDocument();
     expect(screen.getAllByText("500 MB")).toHaveLength(2);
@@ -89,4 +92,49 @@ describe("Utilização e limites", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível consultar a utilização");
     expect(screen.queryByText("0")).not.toBeInTheDocument();
   });
+
+  it("estima o tempo até à quota apenas com dois registos mensais distintos", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue({
+      data: {
+        configured: true,
+        status: "available",
+        message: "Métricas recebidas diretamente da Management API do Supabase.",
+        metrics: {
+          apiRequestsCount: 12345,
+          apiCounts: [],
+          latest: null,
+          apiCountsAvailable: false,
+          requestCountAvailable: true,
+          databaseSizeBytes: 400 * 1024 * 1024,
+          storageSizeBytes: 100 * 1024 * 1024,
+          storageSnapshotAvailable: true,
+          monthlyHistory: [
+            {
+              snapshot_month: "2026-11-01",
+              database_size_bytes: 400 * 1024 * 1024,
+              storage_size_bytes: 100 * 1024 * 1024,
+              api_requests_count: 12345,
+              captured_at: "2026-11-01T10:00:00Z",
+            },
+            {
+              snapshot_month: "2026-10-01",
+              database_size_bytes: 300 * 1024 * 1024,
+              storage_size_bytes: 90 * 1024 * 1024,
+              api_requests_count: 10000,
+              captured_at: "2026-10-01T10:00:00Z",
+            },
+          ],
+          monthlyHistoryAvailable: true,
+          retrievedAt: "2026-11-27T10:01:00Z",
+        },
+      },
+      error: null,
+    } as never);
+
+    render(<UsageLimits />);
+    expect(await screen.findByText("Avisos preventivos e previsão")).toBeInTheDocument();
+    expect(screen.getByText(/Previsão: cerca de 31 dias até ao limite/)).toBeInTheDocument();
+    expect(screen.getByText("Normal")).toBeInTheDocument();
+  });
+
 });
