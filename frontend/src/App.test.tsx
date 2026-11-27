@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke, mockAccessAccounts, mockUserMetadata } = vi.hoisted(() => ({
   mockProfile: { role: "administrador_principal", status: "ativo" },
   mockUserMetadata: {} as Record<string, string>,
-  mockAccessAccounts: [] as Array<{ id: string; display_name: string; email: string; role: string; status: string; created_at: string; last_sign_in_at: string }>,
+  mockAccessAccounts: [] as Array<{ id: string; display_name: string; email: string; role: string; status: string; staff_member_id?: string | null; created_at: string; last_sign_in_at: string }>,
   mockStaffOrder: vi.fn().mockResolvedValue({ data: [], error: null }),
   mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
   mockRoleInsert: vi.fn().mockResolvedValue({ error: null }),
