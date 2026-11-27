@@ -17,6 +17,27 @@ type MonthlyUsageSnapshot = {
   captured_at: string;
 };
 
+type EdgeFunctionUsage = {
+  available: boolean;
+  partial: boolean;
+  status: "permission_denied" | "plan_restriction" | "rate_limited" | "available" | "unavailable";
+  windowHours: number;
+  invocations: number;
+  serverErrors: number;
+  clientWarnings: number;
+  runtimeErrors: number | null;
+  runtimeWarnings: number | null;
+  runtimeEvents: number | null;
+  functions: Array<{
+    path: string;
+    invocations: number;
+    serverErrors: number;
+    clientWarnings: number;
+    averageExecutionTimeMs: number | null;
+  }>;
+  retrievedAt: string;
+};
+
 type UsageMetrics = {
   apiRequestsCount: number | null;
   apiCounts: UsagePoint[];
@@ -28,6 +49,7 @@ type UsageMetrics = {
   storageSnapshotAvailable: boolean;
   monthlyHistory: MonthlyUsageSnapshot[];
   monthlyHistoryAvailable: boolean;
+  edgeFunctionMonitoring: EdgeFunctionUsage;
   retrievedAt: string;
 };
 
@@ -249,6 +271,41 @@ export function UsageLimits() {
                 <div className="usage-section-heading"><div><h3>Histórico de utilização</h3><p>Até 31 observações recentes recebidas do fornecedor. Não são estimativas.</p></div></div>
                 {data.metrics.apiCounts.length ? <div className="usage-history-list">{data.metrics.apiCounts.slice().reverse().map((point, index) => <article className="usage-history-row" key={point.timestamp ?? index}><time>{dateLabel(point.timestamp)}</time><span>Auth: <strong>{numberLabel(point.authRequests)}</strong></span><span>REST: <strong>{numberLabel(point.restRequests)}</strong></span><span>Realtime: <strong>{numberLabel(point.realtimeRequests)}</strong></span><span>Storage: <strong>{numberLabel(point.storageRequests)}</strong></span></article>)}</div> : <div className="empty-state"><strong>O fornecedor não devolveu observações históricas.</strong></div>}
               </section>
+              <section className="usage-section">
+                <div className="usage-section-heading"><div><h3>Edge Functions e incidentes</h3><p>Invocações e eventos das funções nas últimas 24 horas, consultados diretamente nos registos do Supabase. São apresentados apenas totais agregados e tempos médios.</p></div></div>
+                {data.metrics.edgeFunctionMonitoring.available || data.metrics.edgeFunctionMonitoring.partial ? (
+                  <>
+                    <div className="usage-metric-grid">
+                      <article className="usage-metric-card"><span>Invocações</span><strong>{numberLabel(data.metrics.edgeFunctionMonitoring.invocations)}</strong><small>Pedidos recebidos pelas Edge Functions · 24 horas</small></article>
+                      <article className="usage-metric-card"><span>Erros HTTP 5xx</span><strong>{numberLabel(data.metrics.edgeFunctionMonitoring.serverErrors)}</strong><small>Falhas do lado do servidor</small></article>
+                      <article className="usage-metric-card"><span>Avisos HTTP 4xx</span><strong>{numberLabel(data.metrics.edgeFunctionMonitoring.clientWarnings)}</strong><small>Pedidos recusados ou inválidos</small></article>
+                      <article className="usage-metric-card"><span>Erros de execução</span><strong>{numberLabel(data.metrics.edgeFunctionMonitoring.runtimeErrors)}</strong><small>Eventos error/fatal emitidos no runtime</small></article>
+                      <article className="usage-metric-card"><span>Avisos de execução</span><strong>{numberLabel(data.metrics.edgeFunctionMonitoring.runtimeWarnings)}</strong><small>Eventos warn/warning emitidos no runtime</small></article>
+                    </div>
+                    {data.metrics.edgeFunctionMonitoring.functions.length ? (
+                      <div className="usage-history-list">
+                        {data.metrics.edgeFunctionMonitoring.functions.map((fn) => (
+                          <article className="usage-history-row" key={fn.path}>
+                            <strong>{fn.path}</strong>
+                            <span>Invocações: <strong>{numberLabel(fn.invocations)}</strong></span>
+                            <span>Erros 5xx: <strong>{numberLabel(fn.serverErrors)}</strong></span>
+                            <span>Avisos 4xx: <strong>{numberLabel(fn.clientWarnings)}</strong></span>
+                            <span>Tempo médio: <strong>{fn.averageExecutionTimeMs === null ? "Não disponibilizado" : String(numberLabel(fn.averageExecutionTimeMs)) + " ms"}</strong></span>
+                          </article>
+                        ))}
+                      </div>
+                    ) : <div className="empty-state"><strong>Sem invocações registadas no período consultado.</strong></div>}
+                    {data.metrics.edgeFunctionMonitoring.partial && <p className="usage-quota-note">Monitorização parcial: nem todas as fontes de registos responderam.</p>}
+                  </>
+                ) : (
+                  <div className="empty-state">
+                    <strong>{data.metrics.edgeFunctionMonitoring.status === "permission_denied" ? "Permissão de leitura de registos em falta." : data.metrics.edgeFunctionMonitoring.status === "plan_restriction" ? "O fornecedor não disponibilizou esta consulta no plano atual." : data.metrics.edgeFunctionMonitoring.status === "rate_limited" ? "Limite temporário de consultas atingido." : "Registos das Edge Functions indisponíveis."}</strong>
+                    <p>Confirma a permissão <code>analytics_logs_read</code> no token e tenta novamente. Não é apresentado conteúdo bruto dos registos.</p>
+                  </div>
+                )}
+                <p className="usage-quota-note">O intervalo de consulta é limitado às últimas 24 horas pela Management API. Os corpos dos pedidos/respostas e mensagens completas dos logs não são apresentados.</p>
+              </section>
+
               <section className="usage-section usage-not-yet-measured"><strong>Indicadores ainda não ligados</strong><p>Utilizadores ativos mensais, transferência de dados, invocações de Edge Functions e métricas de sincronização ainda não estão ligados. A ocupação atual da base de dados e do Storage só aparece quando a consulta agregada está disponível. Estes valores não são confundidos com as médias de consumo usadas pelo Supabase para faturação.</p></section>
               <p className="usage-updated-at">Última consulta: {dateLabel(data.metrics.retrievedAt)}</p>
             </>
