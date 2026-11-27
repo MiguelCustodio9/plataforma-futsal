@@ -65,7 +65,7 @@ export function UsageLimits() {
   const latest = data?.metrics?.latest ?? null;
   const cards = [
     { label: "Autenticação", value: latest?.authRequests ?? null, description: "Pedidos ao serviço de autenticação" },
-    { label: "Base de dados / API", value: latest?.restRequests ?? null, description: "Pedidos REST registados" },
+    { label: "API REST", value: latest?.restRequests ?? null, description: "Pedidos REST registados" },
     { label: "Realtime", value: latest?.realtimeRequests ?? null, description: "Pedidos ao serviço Realtime" },
     { label: "Armazenamento", value: latest?.storageRequests ?? null, description: "Pedidos ao serviço Storage" },
   ];
@@ -103,6 +103,7 @@ export function UsageLimits() {
                 <div className="usage-section-heading"><div><h3>Histórico de utilização</h3><p>Até 31 observações recentes recebidas do fornecedor. Não são estimativas.</p></div></div>
                 {data.metrics.apiCounts.length ? <div className="usage-history-list">{data.metrics.apiCounts.slice().reverse().map((point, index) => <article className="usage-history-row" key={point.timestamp ?? index}><time>{dateLabel(point.timestamp)}</time><span>Auth: <strong>{numberLabel(point.authRequests)}</strong></span><span>REST: <strong>{numberLabel(point.restRequests)}</strong></span><span>Realtime: <strong>{numberLabel(point.realtimeRequests)}</strong></span><span>Storage: <strong>{numberLabel(point.storageRequests)}</strong></span></article>)}</div> : <div className="empty-state"><strong>O fornecedor não devolveu observações históricas.</strong></div>}
               </section>
+              <section className="usage-section usage-not-yet-measured"><strong>Indicadores ainda não ligados</strong><p>O âmbito atual do token permite consultar contagens de pedidos da API. O espaço ocupado pela base de dados e pelo Storage, utilizadores ativos mensais, transferência de dados, invocações de Edge Functions e métricas de sincronização ainda não são apresentados como valores reais. Não são estimados nem substituídos por zeros.</p></section>
               <p className="usage-updated-at">Última consulta: {dateLabel(data.metrics.retrievedAt)}</p>
             </>
           ) : data.status === "not_configured" ? (
