@@ -222,7 +222,7 @@ Deno.serve(async (request) => {
     }
 
     const { data: target, error: targetError } = await admin.from("profiles")
-      .select("id, role, status").eq("id", targetProfileId).maybeSingle();
+      .select("id, display_name, role, status").eq("id", targetProfileId).maybeSingle();
     if (targetError || !target) return respond(404, { error: "Conta não encontrada." });
     if (!["staff", "treinador_principal"].includes(target.role)) {
       return respond(409, { error: "Só é possível eliminar contas Staff ou Treinador Principal nesta secção." });
