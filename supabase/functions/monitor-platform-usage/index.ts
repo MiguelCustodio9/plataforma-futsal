@@ -36,6 +36,7 @@ Deno.serve(async (request) => {
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const managementToken = Deno.env.get("MANAGEMENT_READ_TOKEN") ?? "";
   if (!token || !supabaseUrl || !anonKey) return respond(401, { error: "Sessão inválida." });
 
@@ -72,6 +73,22 @@ Deno.serve(async (request) => {
   const [apiCountsResponse, requestCountResponse] = await Promise.all(endpoints);
   const apiCounts = apiCountsResponse.ok ? await apiCountsResponse.json().catch(() => null) : null;
   const requestCount = requestCountResponse.ok ? await requestCountResponse.json().catch(() => null) : null;
+
+  let databaseSizeBytes: number | null = null;
+  let storageSizeBytes: number | null = null;
+  if (serviceRoleKey) {
+    const metricsClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: snapshot, error: snapshotError } = await metricsClient
+      .rpc("get_platform_usage_storage_snapshot").maybeSingle();
+    if (!snapshotError && snapshot) {
+      databaseSizeBytes = Number.isFinite(Number(snapshot.database_size_bytes))
+        ? Number(snapshot.database_size_bytes) : null;
+      storageSizeBytes = Number.isFinite(Number(snapshot.storage_size_bytes))
+        ? Number(snapshot.storage_size_bytes) : null;
+    }
+  }
 
   const points = Array.isArray(apiCounts?.result)
     ? apiCounts.result.filter((point: UsagePoint) => point && typeof point === "object").slice(-31)
@@ -116,6 +133,9 @@ Deno.serve(async (request) => {
       latest: normalizedPoints.at(-1) ?? null,
       apiCountsAvailable,
       requestCountAvailable,
+      databaseSizeBytes,
+      storageSizeBytes,
+      storageSnapshotAvailable: databaseSizeBytes !== null && storageSizeBytes !== null,
       retrievedAt: new Date().toISOString(),
     },
   });
