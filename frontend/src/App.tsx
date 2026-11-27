@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { supabase, testSupabaseConnection } from "./lib/supabase";
 import { PlatformSettings } from "./PlatformSettings";
 import { SecurityActivity } from "./SecurityActivity";
+import { UsageLimits } from "./UsageLimits";
 
 const modules = [
   "Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos",
@@ -641,7 +642,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           {visibleModules.map((module) => (
             <button key={module} className={activeArea === module ? "nav-link active" : "nav-link"} onClick={() => setActiveArea(module)} aria-current={activeArea === module ? "page" : undefined}>
               <span aria-hidden="true">◇</span> {module}
-              {module !== "Staff" && module !== "Gestão de acessos" && module !== "Configurações da plataforma" && module !== "Segurança e atividade" && <span className="soon">A preparar</span>}
+              {module !== "Staff" && module !== "Gestão de acessos" && module !== "Configurações da plataforma" && module !== "Segurança e atividade" && module !== "Utilização e limites" && <span className="soon">A preparar</span>}
             </button>
           ))}
         </nav>
@@ -650,7 +651,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 
       <section className="main-area" id="inicio">
         <header className="topbar">
-          <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Staff" ? "Gestão de Staff" : activeArea === "Gestão de acessos" ? "Gestão de acessos" : activeArea === "Configurações da plataforma" ? "Configurações da plataforma" : activeArea === "Segurança e atividade" ? "Segurança e atividade" : "Centro de controlo"}</h1></div>
+          <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Staff" ? "Gestão de Staff" : activeArea === "Gestão de acessos" ? "Gestão de acessos" : activeArea === "Configurações da plataforma" ? "Configurações da plataforma" : activeArea === "Segurança e atividade" ? "Segurança e atividade" : activeArea === "Utilização e limites" ? "Utilização e limites" : "Centro de controlo"}</h1></div>
           <div className="topbar-meta"><div className="account-identity"><strong>{profile.displayName}</strong><span>{roleLabels[profile.role]}</span></div><span className="environment">SESSÃO AUTENTICADA</span><button className="sign-out-button" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button></div>
         </header>
 
@@ -668,7 +669,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             <section className="module-grid" aria-label="Ferramentas exclusivas do administrador">
               {administratorModules.map((item, index) => (
                 <button type="button" className="module-card admin-shortcut" key={item} onClick={() => setActiveArea(item)}>
-                  <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item}</h3><p>{item === "Gestão de acessos" ? "Contas, convites, funções e permissões." : item === "Configurações da plataforma" ? "Identidade do clube, equipa, época e preferências." : item === "Segurança e atividade" ? "Sessões, acessos e registos de atividade." : "Consumo e limites dos serviços utilizados."}</p><span className="module-state">{["Gestão de acessos", "Configurações da plataforma", "Segurança e atividade"].includes(item) ? "Disponível" : "Planeado"}</span>
+                  <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item}</h3><p>{item === "Gestão de acessos" ? "Contas, convites, funções e permissões." : item === "Configurações da plataforma" ? "Identidade do clube, equipa, época e preferências." : item === "Segurança e atividade" ? "Sessões, acessos e registos de atividade." : "Consumo e limites dos serviços utilizados."}</p><span className="module-state">{["Gestão de acessos", "Configurações da plataforma", "Segurança e atividade", "Utilização e limites"].includes(item) ? "Disponível" : "Planeado"}</span>
                 </button>
               ))}
             </section>
@@ -680,6 +681,8 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           <PlatformSettings />
         ) : profile.role === "administrador_principal" && activeArea === "Segurança e atividade" ? (
           <SecurityActivity />
+        ) : profile.role === "administrador_principal" && activeArea === "Utilização e limites" ? (
+          <UsageLimits />
         ) : profile.role === "administrador_principal" && administratorModules.includes(activeArea) ? (
           <div className="content">
             <section className="welcome-panel">
