@@ -48,6 +48,26 @@ describe("Utilização e limites", () => {
             captured_at: "2026-11-27T10:01:00Z",
           }],
           monthlyHistoryAvailable: true,
+          edgeFunctionMonitoring: {
+            available: true,
+            partial: false,
+            status: "available",
+            windowHours: 24,
+            invocations: 42,
+            serverErrors: 2,
+            clientWarnings: 3,
+            runtimeErrors: 1,
+            runtimeWarnings: 4,
+            runtimeEvents: 15,
+            functions: [{
+              path: "/functions/v1/monitor-platform-usage",
+              invocations: 42,
+              serverErrors: 2,
+              clientWarnings: 3,
+              averageExecutionTimeMs: 125,
+            }],
+            retrievedAt: "2026-11-27T10:01:00Z",
+          },
           retrievedAt: "2026-11-27T10:01:00Z",
         },
       },
@@ -71,6 +91,10 @@ describe("Utilização e limites", () => {
     expect(screen.getByText("Autenticação")).toBeInTheDocument();
     expect(screen.getAllByText("840")).toHaveLength(2);
     expect(screen.getByText("Histórico de utilização")).toBeInTheDocument();
+    expect(screen.getByText("Edge Functions e incidentes")).toBeInTheDocument();
+    expect(screen.getByText("Invocações")).toBeInTheDocument();
+    expect(screen.getByText("Erros HTTP 5xx")).toBeInTheDocument();
+    expect(screen.getByText("/functions/v1/monitor-platform-usage")).toBeInTheDocument();
     expect(screen.getByText("Histórico mensal persistente")).toBeInTheDocument();
     expect(screen.getByText("Avisos preventivos e previsão")).toBeInTheDocument();
     expect(screen.getByText("Limite atingido")).toBeInTheDocument();
@@ -140,6 +164,26 @@ describe("Utilização e limites", () => {
             },
           ],
           monthlyHistoryAvailable: true,
+          edgeFunctionMonitoring: {
+            available: true,
+            partial: false,
+            status: "available",
+            windowHours: 24,
+            invocations: 42,
+            serverErrors: 2,
+            clientWarnings: 3,
+            runtimeErrors: 1,
+            runtimeWarnings: 4,
+            runtimeEvents: 15,
+            functions: [{
+              path: "/functions/v1/monitor-platform-usage",
+              invocations: 42,
+              serverErrors: 2,
+              clientWarnings: 3,
+              averageExecutionTimeMs: 125,
+            }],
+            retrievedAt: "2026-11-27T10:01:00Z",
+          },
           retrievedAt: "2026-11-27T10:01:00Z",
         },
       },
