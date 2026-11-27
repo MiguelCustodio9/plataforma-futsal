@@ -765,3 +765,30 @@ input[type="color"]::-moz-color-swatch {
 .usage-not-yet-measured { margin-top:14px; padding:15px 17px; border-style:dashed; }
 .usage-not-yet-measured strong { font-size:12px; }
 .usage-not-yet-measured p { margin:6px 0 0; color:var(--muted-text,#94a3b8); font-size:11px; line-height:1.6; }
+
+
+/* Utilização e limites — avisos preventivos e previsão */
+.usage-quota-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; }
+.usage-quota-card { min-width:0; padding:17px; border:1px solid var(--border-color,rgba(148,163,184,.18)); border-radius:12px; background:rgba(7,31,21,.28); }
+.usage-quota-heading,.usage-quota-values,.usage-quota-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.usage-quota-heading > span { color:var(--muted-text,#b6c8bd); font-size:12px; font-weight:700; }
+.usage-quota-heading > strong { padding:5px 8px; border-radius:999px; font-size:9px; letter-spacing:.03em; background:rgba(134,239,172,.12); color:#86efac; }
+.usage-quota-values { justify-content:flex-start; margin-top:14px; align-items:baseline; }
+.usage-quota-values > strong { font-size:21px; font-variant-numeric:tabular-nums; }
+.usage-quota-values > span,.usage-quota-footer { color:var(--muted-text,#94a3b8); font-size:10px; }
+.usage-quota-track { height:9px; margin-top:13px; overflow:hidden; border-radius:999px; background:rgba(148,163,184,.17); }
+.usage-quota-track > span { display:block; height:100%; border-radius:inherit; background:#36a875; transition:width .2s ease; }
+.usage-quota-footer { margin-top:7px; }
+.usage-forecast { margin:13px 0 0; color:var(--text-color,#d7e9dd); font-size:10px; line-height:1.55; }
+.usage-quota-note { margin:14px 0 0; color:var(--muted-text,#94a3b8); font-size:10px; line-height:1.6; }
+.usage-risk-attention { border-color:rgba(234,179,8,.35); }
+.usage-risk-attention .usage-quota-heading > strong { background:rgba(234,179,8,.13); color:#facc15; }
+.usage-risk-attention .usage-quota-track > span { background:#d4a72c; }
+.usage-risk-high { border-color:rgba(249,115,22,.4); }
+.usage-risk-high .usage-quota-heading > strong { background:rgba(249,115,22,.14); color:#fdba74; }
+.usage-risk-high .usage-quota-track > span { background:#f59e0b; }
+.usage-risk-critical,.usage-risk-reached { border-color:rgba(248,113,113,.42); }
+.usage-risk-critical .usage-quota-heading > strong,.usage-risk-reached .usage-quota-heading > strong { background:rgba(220,38,38,.18); color:#fca5a5; }
+.usage-risk-critical .usage-quota-track > span,.usage-risk-reached .usage-quota-track > span { background:#ef6464; }
+.usage-risk-unavailable .usage-quota-heading > strong { background:rgba(148,163,184,.13); color:#cbd5e1; }
+@media(max-width:700px) { .usage-quota-grid { grid-template-columns:1fr; } }
