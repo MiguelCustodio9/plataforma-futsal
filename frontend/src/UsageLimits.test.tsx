@@ -76,13 +76,24 @@ describe("Utilização e limites", () => {
       error: null,
     } as never);
 
-    vi.mocked(supabase.rpc).mockResolvedValue({
-      data: [
-        { feature_key: "staff", event_count: 18 },
-        { feature_key: "usage_limits", event_count: 7 },
-      ],
-      error: null,
-    } as never);
+    vi.mocked(supabase.rpc).mockImplementation(async (fnName: string) => {
+      if (fnName === "get_platform_feature_usage") return {
+        data: [
+          { feature_key: "staff", event_count: 18 },
+          { feature_key: "usage_limits", event_count: 7 },
+        ],
+        error: null,
+      } as never;
+      if (fnName === "get_platform_connectivity_usage") return {
+        data: [
+          { event_key: "browser_online", event_count: 5, last_occurred_at: "2026-11-27T10:00:00Z" },
+          { event_key: "browser_offline", event_count: 2, last_occurred_at: "2026-11-27T09:00:00Z" },
+          { event_key: "supabase_connected", event_count: 8, last_occurred_at: "2026-11-27T10:01:00Z" },
+        ],
+        error: null,
+      } as never;
+      return { data: [], error: null } as never;
+    });
 
     render(<UsageLimits />);
     expect(await screen.findByText("Monitorização ligada")).toBeInTheDocument();
@@ -103,6 +114,10 @@ describe("Utilização e limites", () => {
     expect(screen.getByText(/Disponível após existirem registos de pelo menos dois meses distintos/)).toBeInTheDocument();
     expect(screen.getByText("novembro de 2026")).toBeInTheDocument();
     expect(screen.getByText("Ocupação atual")).toBeInTheDocument();
+    expect(screen.getByText("Conectividade e ligação ao Supabase")).toBeInTheDocument();
+    expect(screen.getByText("Ligação deste navegador")).toBeInTheDocument();
+    expect(screen.getByText("Última ligação confirmada ao Supabase")).toBeInTheDocument();
+    expect(supabase.rpc).toHaveBeenCalledWith("get_platform_connectivity_usage");
     expect(screen.getAllByText("500 MB")).toHaveLength(3);
     expect(screen.getAllByText("100 MB")).toHaveLength(3);
     expect(supabase.functions.invoke).toHaveBeenCalledWith("monitor-platform-usage", { body: {} });
