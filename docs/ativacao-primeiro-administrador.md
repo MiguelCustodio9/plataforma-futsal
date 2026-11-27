@@ -1,48 +1,53 @@
 # Configuração e ativação do primeiro Administrador Principal
 
-## Estado
+## Estado atual
 
-A migration e a Edge Function estão preparadas no GitHub, mas **não foram aplicadas nem publicadas**. Não foi criado qualquer utilizador e nenhuma chave foi adicionada ao GitHub.
+A preparação está versionada no GitHub, mas **nenhuma migration foi aplicada nesta execução, nenhuma Edge Function foi publicada e nenhum utilizador foi criado**. O segredo temporário e a chave `service_role` não foram adicionados ao repositório nem ao frontend.
 
-A Edge Function reserva atomicamente o bootstrap na base de dados antes de enviar o convite. A reserva expira após 15 minutos se a operação não for concluída, e é libertada quando o convite ou a criação do perfil falha.
+A função `bootstrap-first-admin` reserva atomicamente o bootstrap antes de enviar o convite. A reserva expira após 15 minutos e é libertada quando a criação do convite ou do perfil falha. Depois de concluído, o registo fica consumido e não aceita uma segunda utilização.
 
 ## Pré-requisitos antes da ativação
 
-1. Confirmar no Dashboard que este é o projeto Supabase correto.
-2. Rever a migration `supabase/migrations/20261126090000_profiles_roles_and_initial_admin.sql`.
-3. Confirmar que os workflows de frontend e validação Supabase estão verdes.
-4. Confirmar o URL permitido de redirecionamento de autenticação no Supabase.
-5. Instalar e autenticar a Supabase CLI localmente. Não guardar o access token da CLI no repositório.
+1. Confirmar no Dashboard que o projeto aberto é o projeto da plataforma.
+2. Rever **todas** as migrations pendentes em `supabase/migrations/`, pela ordem dos timestamps. `supabase db push` aplica todas as migrations pendentes, não apenas a primeira.
+3. Confirmar que o endereço de redirecionamento do convite está autorizado em Authentication → URL Configuration. O endereço de produção já foi indicado na configuração anterior, mas o estado atual do Dashboard não pode ser verificado pelo repositório.
+4. Confirmar nas definições de Auth que não existe registo público de utilizadores. A aplicação não disponibiliza `signUp`; as contas devem ser criadas apenas por convites administrativos.
+5. Confirmar os secrets necessários na Edge Function, sem os partilhar na conversa.
+6. Confirmar que os workflows de frontend e validação Supabase estão verdes para o commit que se pretende utilizar.
 
 ## Secrets da Edge Function
 
-Configurar no Supabase Dashboard, em Edge Functions → Secrets, sem os colocar no frontend nem em ficheiros versionados:
+Configurar em Supabase Dashboard → Edge Functions → Secrets:
 
-- `BOOTSTRAP_SECRET`: valor aleatório com pelo menos 32 caracteres, de utilização temporária.
-- `BOOTSTRAP_ALLOWED_ORIGIN`: origem exata do site publicado, por exemplo `https://miguelcustodio9.github.io` (sem caminho).
-- `BOOTSTRAP_REDIRECT_URL`: URL final para onde o convite deve regressar; tem de estar autorizado nas definições de Auth.
-- `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`: usar os valores de servidor do projeto. A service role nunca pode ser exposta em `VITE_*`, código cliente ou GitHub Pages.
+- `BOOTSTRAP_SECRET`: valor aleatório com pelo menos 32 caracteres, temporário e de utilização única.
+- `BOOTSTRAP_ALLOWED_ORIGIN`: origem exata do GitHub Pages, sem caminho.
+- `BOOTSTRAP_REDIRECT_URL`: URL final do site, autorizado nas definições de Auth.
+- `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`: valores de servidor do projeto, exclusivamente no ambiente servidor.
 
-Não partilhar estes valores em mensagens, screenshots ou commits.
+Nunca colocar estes valores em `VITE_*`, no frontend, em ficheiros versionados, em logs ou em mensagens. A `service_role` não pode ser exposta no GitHub Pages.
 
-## Sequência de ativação — ainda não executar
+## Configuração e sequência de ativação
 
-Depois de todos os pré-requisitos e testes aprovados:
+1. Associar a Supabase CLI ao projeto correto, confirmando o project ref antes de qualquer operação.
+2. Rever as migrations em conjunto. A cadeia atual inclui perfis/papéis, bootstrap inicial, Staff, ciclo de vida de contas e auditoria de acessos. Não aplicar apenas a primeira migration se a intenção for preparar todo o backend atual.
+3. Aplicar as migrations aprovadas com `supabase db push`. Não executar este comando até a revisão e a confirmação do projeto estarem concluídas.
+4. Configurar os secrets da Edge Function.
+5. Publicar `bootstrap-first-admin` com a Supabase CLI. A configuração versionada define `verify_jwt = false` para esta função porque a autenticação é feita pelo segredo temporário `x-bootstrap-secret`, validado dentro da função. Não remover essa validação.
+6. Enviar o POST diretamente a partir de um terminal de confiança, com o header `x-bootstrap-secret` e apenas o nome/email pretendidos. O frontend público não chama esta função.
+7. Abrir o convite recebido e definir a palavra-passe no ecrã da plataforma.
+8. Confirmar no Supabase que o perfil tem o papel `administrador_principal` e estado `ativo`, e que o bootstrap ficou consumido.
+9. Remover imediatamente `BOOTSTRAP_SECRET` dos secrets do projeto.
 
-1. Associar a Supabase CLI ao projeto correto.
-2. Aplicar a migration revista com `supabase db push`.
-3. Publicar a função com `supabase functions deploy bootstrap-first-admin`.
-4. Enviar um pedido POST diretamente à função, a partir de um terminal de confiança, com o header `x-bootstrap-secret` e apenas o email/nome pretendidos. Não chamar a função a partir do frontend público.
-5. Confirmar que o convite foi recebido e concluir a definição de palavra-passe no ecrã próprio.
-6. Confirmar a existência do perfil com papel `administrador_principal`.
-7. Remover imediatamente `BOOTSTRAP_SECRET` dos secrets do projeto. A base de dados também marca o bootstrap como consumido, bloqueando novas tentativas.
+O workflow `Publicar funções Supabase` é manual (`workflow_dispatch`) e agora inclui a função de bootstrap. Não foi executado nesta preparação.
 
-A função exige o segredo temporário, valida a origem quando existe um cabeçalho Origin e reserva o bootstrap antes de enviar o convite. As funções SQL de reserva, conclusão e libertação só podem ser executadas pela service role.
+## Distinção entre convites
 
-## Limites conhecidos
+Os convites iniciais do Administrador incluem o metadado `invite_kind=initial_admin`; por isso, a definição de palavra-passe não chama a função de ativação de Staff. Os convites de Staff e Treinador Principal incluem `invite_kind=staff`. Convites antigos sem esse metadado continuam a ser tratados como convites de Staff.
 
-- O ecrã de definição de palavra-passe está implementado no frontend e contempla convites e recuperação. A validação real do fluxo depende ainda de um convite depois da configuração e publicação controlada da função.
-- As políticas RLS atuais permitem ao utilizador ler o próprio perfil e ao Administrador Principal ler os perfis. Não permitem ao cliente inserir perfis nem alterar papéis/estados.
-- O acesso transversal de Treinador Principal e Staff deve ser definido por módulo antes de acrescentar políticas adicionais.
-- A CI verifica a sintaxe TypeScript da Edge Function, mas não executa a migration SQL nem valida RLS numa instância Supabase. A migration deve ser revista e validada cuidadosamente antes de ser aplicada na base de dados real.
-- Se a criação do perfil falhar depois de enviado o convite, a função tenta eliminar a conta Auth criada e libertar a reserva. Uma falha de rede ou indisponibilidade externa pode exigir verificação manual antes de repetir o procedimento.
+## Limites e validações pendentes
+
+- O workflow de frontend executa testes Vitest, lint e build.
+- O workflow Supabase executa `deno check` nas Edge Functions. Não executa migrations SQL nem testes de integração RLS.
+- A migration SQL e as políticas RLS ainda precisam de validação numa instância Supabase de teste antes de serem aplicadas ao projeto real.
+- O estado das migrations aplicadas, dos secrets, da opção de signup e dos utilizadores existentes só pode ser confirmado no Supabase Dashboard/CLI autenticada; não é inferível a partir do GitHub.
+- Se o convite for enviado mas a criação do perfil falhar, a função tenta eliminar o utilizador Auth e libertar a reserva. Uma falha externa pode exigir verificação manual antes de repetir a operação.
