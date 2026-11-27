@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase, testSupabaseConnection } from "./lib/supabase";
 import { PlatformSettings } from "./PlatformSettings";
+import { SecurityActivity } from "./SecurityActivity";
 
 const modules = [
   "Plantel", "Staff", "Competições", "Jogos", "Análise", "Treinos",
@@ -667,7 +668,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
             <section className="module-grid" aria-label="Ferramentas exclusivas do administrador">
               {administratorModules.map((item, index) => (
                 <button type="button" className="module-card admin-shortcut" key={item} onClick={() => setActiveArea(item)}>
-                  <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item}</h3><p>{item === "Gestão de acessos" ? "Contas, convites, funções e permissões." : item === "Configurações da plataforma" ? "Identidade do clube, equipa, época e preferências." : item === "Segurança e atividade" ? "Sessões, acessos e registos de atividade." : "Consumo e limites dos serviços utilizados."}</p><span className="module-state">{item === "Gestão de acessos" || item === "Configurações da plataforma" ? "Disponível" : "Planeado"}</span>
+                  <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item}</h3><p>{item === "Gestão de acessos" ? "Contas, convites, funções e permissões." : item === "Configurações da plataforma" ? "Identidade do clube, equipa, época e preferências." : item === "Segurança e atividade" ? "Sessões, acessos e registos de atividade." : "Consumo e limites dos serviços utilizados."}</p><span className="module-state">{["Gestão de acessos", "Configurações da plataforma", "Segurança e atividade"].includes(item) ? "Disponível" : "Planeado"}</span>
                 </button>
               ))}
             </section>
@@ -677,6 +678,8 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           <AccessManagement currentProfileId={profile.id} />
         ) : profile.role === "administrador_principal" && activeArea === "Configurações da plataforma" ? (
           <PlatformSettings />
+        ) : profile.role === "administrador_principal" && activeArea === "Segurança e atividade" ? (
+          <SecurityActivity />
         ) : profile.role === "administrador_principal" && administratorModules.includes(activeArea) ? (
           <div className="content">
             <section className="welcome-panel">
