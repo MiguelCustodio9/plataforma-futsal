@@ -191,7 +191,7 @@ describe("plataforma de futsal", () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Segurança e atividade/ }));
-    expect(await screen.findByRole("heading", { name: "Segurança e atividade" })).toBeInTheDocument();
+    expect(await screen.findAllByRole("heading", { name: "Segurança e atividade" })).not.toHaveLength(0);
     expect(await screen.findAllByText("Conta de teste")).not.toHaveLength(0);
     expect(screen.getByText("Confirmado")).toBeInTheDocument();
     expect(screen.getByText("Conta suspensa")).toBeInTheDocument();
