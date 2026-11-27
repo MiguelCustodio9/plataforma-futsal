@@ -813,3 +813,15 @@ input[type="color"]::-moz-color-swatch {
 .sports-dashboard-note { margin:20px 0 0; padding:14px 16px; border:1px dashed rgba(169,199,182,.25); border-radius:10px; color:var(--muted); font-size:10px; line-height:1.65; }
 @media(max-width:1100px) { .sports-dashboard-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:760px) { .sports-dashboard-grid,.sports-dashboard-lower { grid-template-columns:1fr; } .sports-dashboard-card { min-height:180px; } .sports-dashboard { padding-top:20px; } }
+
+
+/* Extensão da ficha da atleta: contactos, EE e carreira */
+.roster-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.field-note{color:var(--muted,#9aa3b2);font-size:.84rem;margin:0 0 12px}
+.roster-related-card{padding:14px;margin:12px 0;border:1px solid var(--border,rgba(255,255,255,.1));border-radius:12px;background:rgba(255,255,255,.025)}
+.text-danger-button{border:0;background:transparent;color:#e58b8b;padding:8px 0;cursor:pointer;font:inherit;font-size:.85rem}
+.roster-detail-related{margin-top:20px;padding-top:16px;border-top:1px solid var(--border,rgba(255,255,255,.1))}
+.roster-detail-related h3{margin:0 0 10px;font-size:1rem}
+.roster-detail-related>div{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.07))}
+.roster-detail-related>div span{color:var(--muted,#9aa3b2);text-align:right;font-size:.9rem}
+@media(max-width:640px){.roster-detail-related>div{display:grid}.roster-detail-related>div span{text-align:left}.roster-section-heading{align-items:flex-start}}
