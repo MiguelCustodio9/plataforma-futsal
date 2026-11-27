@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { getTimeZones } from "@vvo/tzdb";
+import geoClient from "countrycitystatejson/client";
 import { supabase } from "./lib/supabase";
 
 type Settings = {
@@ -39,6 +40,7 @@ type Tab = typeof tabs[number];
 
 const allTimeZones = getTimeZones({ locale: "pt" });
 const countryCollator = new Intl.Collator("pt", { sensitivity: "base" });
+const countryNames = new Intl.DisplayNames(["pt-PT"], { type: "region" });
 
 const emptySettings: Settings = {
   club_name: "",
@@ -74,26 +76,48 @@ export function PlatformSettings() {
   const [teamFile, setTeamFile] = useState<File | null>(null);
   const [clubPreview, setClubPreview] = useState("");
   const [teamPreview, setTeamPreview] = useState("");
+  const [localityOptions, setLocalityOptions] = useState<string[]>([]);
+  const [localitiesLoading, setLocalitiesLoading] = useState(false);
 
-  const countryOptions = useMemo(() => {
-    const countries = new Map<string, string>();
-    allTimeZones.forEach((zone) => {
-      if (zone.countryCode && zone.countryName) countries.set(zone.countryCode, zone.countryName);
-    });
-    return Array.from(countries, ([code, name]) => ({ code, name }))
-      .sort((a, b) => countryCollator.compare(a.name, b.name));
-  }, []);
+  const countryOptions = useMemo(
+    () => geoClient.getCountries().map((country) => ({
+      code: country.shortName,
+      name: countryNames.of(country.shortName) ?? country.name,
+    })).sort((a, b) => countryCollator.compare(a.name, b.name)),
+    [],
+  );
 
   const selectedCountry = countryOptions.find((country) => country.name === draft.country);
+  const selectedCountryCode = selectedCountry?.code ?? "";
   const zonesForCountry = useMemo(
-    () => selectedCountry ? allTimeZones.filter((zone) => zone.countryCode === selectedCountry.code) : [],
-    [selectedCountry],
+    () => selectedCountryCode ? allTimeZones.filter((zone) => zone.countryCode === selectedCountryCode) : [],
+    [selectedCountryCode],
   );
-  const localityOptions = useMemo(
-    () => Array.from(new Set(zonesForCountry.flatMap((zone) => zone.mainCities)))
-      .sort(countryCollator.compare),
-    [zonesForCountry],
-  );
+
+  useEffect(() => {
+    if (!selectedCountryCode) {
+      setLocalityOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setLocalitiesLoading(true);
+    const states = geoClient.getStatesByShort(selectedCountryCode) ?? [];
+    Promise.all(states.map((state) => geoClient.getCities(selectedCountryCode, state)))
+      .then((cityLists) => {
+        if (cancelled) return;
+        setLocalityOptions(Array.from(new Set(cityLists.flatMap((cities) => cities ?? [])))
+          .sort(countryCollator.compare));
+      })
+      .catch(() => {
+        if (!cancelled) setLocalityOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLocalitiesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCountryCode]);
   const zonesForLocality = useMemo(
     () => zonesForCountry.filter((zone) => zone.mainCities.includes(draft.locality)),
     [zonesForCountry, draft.locality],
@@ -277,12 +301,12 @@ export function PlatformSettings() {
               </select>
             </label>
             <label>Localidade / cidade
-              <select value={draft.locality} onChange={(event) => updateLocality(event.target.value)} disabled={!selectedCountry}>
-                <option value="">Selecionar localidade</option>
+              <select value={draft.locality} onChange={(event) => updateLocality(event.target.value)} disabled={!selectedCountry || localitiesLoading}>
+                <option value="">{localitiesLoading ? "A carregar localidades…" : "Selecionar localidade"}</option>
                 {draft.locality && !localityOptions.includes(draft.locality) && <option value={draft.locality}>{draft.locality} (valor guardado)</option>}
                 {localityOptions.map((locality) => <option key={locality} value={locality}>{locality}</option>)}
               </select>
-              <span className="settings-field-hint">A lista apresenta as principais cidades associadas aos fusos horários oficiais de cada país.</span>
+              <span className="settings-field-hint">A lista inclui as localidades catalogadas para o país selecionado. Os dados são carregados apenas quando escolhes o país.</span>
             </label>
             <label>Fuso horário
               <select value={selectedTimezone?.name ?? draft.timezone} onChange={(event) => updateDraft("timezone", event.target.value)} disabled={!selectedCountry}>
