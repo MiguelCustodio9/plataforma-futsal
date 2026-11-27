@@ -145,6 +145,30 @@ describe("plataforma de futsal", () => {
     expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", { body: { action: "list" } });
   });
 
+  it("permite eliminar uma conta Staff na Gestão de acessos preservando a ficha", async () => {
+    mockAccessAccounts.splice(0, mockAccessAccounts.length, {
+      id: "staff-profile-delete",
+      display_name: "Staff a eliminar",
+      email: "staff.eliminar@exemplo.pt",
+      role: "staff",
+      status: "ativo",
+      staff_member_id: "staff-member-preserved",
+      created_at: "2026-11-26T10:00:00Z",
+      last_sign_in_at: "",
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
+    expect(await screen.findByText("Staff a eliminar")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar conta" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/ficha Staff, as funções e todo o histórico desportivo serão preservados/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar eliminação" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", {
+      body: { action: "delete_account", targetProfileId: "staff-profile-delete" },
+    }));
+  });
+
   it("permite criar um Treinador Principal pela Gestão de acessos", async () => {
     render(<App />);
     await screen.findByRole("heading", { name: "Centro de controlo" });
