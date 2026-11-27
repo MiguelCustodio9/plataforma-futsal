@@ -60,6 +60,12 @@ type FeatureUsagePoint = {
   event_count: number;
 };
 
+type ConnectivityUsagePoint = {
+  event_key: "browser_online" | "browser_offline" | "supabase_connected";
+  event_count: number;
+  last_occurred_at: string;
+};
+
 type UsageResponse = {
   configured: boolean;
   status: "not_configured" | "permission_denied" | "token_invalid" | "provider_unavailable" | "available" | "partial";
@@ -138,20 +144,26 @@ export function UsageLimits() {
   const [error, setError] = useState("");
   const [featureUsage, setFeatureUsage] = useState<FeatureUsagePoint[]>([]);
   const [featureUsageAvailable, setFeatureUsageAvailable] = useState(false);
+  const [connectivityUsage, setConnectivityUsage] = useState<ConnectivityUsagePoint[]>([]);
+  const [connectivityUsageAvailable, setConnectivityUsageAvailable] = useState(false);
+  const [browserOnline, setBrowserOnline] = useState(() => navigator.onLine);
 
   const loadUsage = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
     setError("");
     try {
-      const [monitorResult, featureResult] = await Promise.all([
+      const [monitorResult, featureResult, connectivityResult] = await Promise.all([
         supabase.functions.invoke("monitor-platform-usage", { body: {} }),
         supabase.rpc("get_platform_feature_usage"),
+        supabase.rpc("get_platform_connectivity_usage"),
       ]);
       const { data: response, error: invokeError } = monitorResult;
       if (invokeError) throw invokeError;
       setFeatureUsageAvailable(!featureResult.error && Array.isArray(featureResult.data));
       setFeatureUsage(Array.isArray(featureResult.data) ? featureResult.data as FeatureUsagePoint[] : []);
+      setConnectivityUsageAvailable(!connectivityResult.error && Array.isArray(connectivityResult.data));
+      setConnectivityUsage(Array.isArray(connectivityResult.data) ? connectivityResult.data as ConnectivityUsagePoint[] : []);
       if (!response || typeof response.configured !== "boolean" || typeof response.status !== "string") {
         throw new Error("Resposta inválida do serviço de monitorização.");
       }
@@ -166,6 +178,16 @@ export function UsageLimits() {
   }, []);
 
   useEffect(() => { void loadUsage(); }, [loadUsage]);
+
+  useEffect(() => {
+    const updateBrowserStatus = () => setBrowserOnline(navigator.onLine);
+    window.addEventListener("online", updateBrowserStatus);
+    window.addEventListener("offline", updateBrowserStatus);
+    return () => {
+      window.removeEventListener("online", updateBrowserStatus);
+      window.removeEventListener("offline", updateBrowserStatus);
+    };
+  }, []);
 
   const latest = data?.metrics?.latest ?? null;
   const cards = [
@@ -308,7 +330,25 @@ export function UsageLimits() {
                 <p className="usage-quota-note">O intervalo de consulta é limitado às últimas 24 horas pela Management API. Os corpos dos pedidos/respostas e mensagens completas dos logs não são apresentados.</p>
               </section>
 
-              <section className="usage-section usage-not-yet-measured"><strong>Indicadores ainda não ligados</strong><p>Utilizadores ativos mensais, transferência de dados, invocações de Edge Functions e métricas de sincronização ainda não estão ligados. A ocupação atual da base de dados e do Storage só aparece quando a consulta agregada está disponível. Estes valores não são confundidos com as médias de consumo usadas pelo Supabase para faturação.</p></section>
+              <section className="usage-section">
+                <div className="usage-section-heading"><div><h3>Conectividade e ligação ao Supabase</h3><p>Estado deste navegador e eventos agregados registados na plataforma nos últimos 30 dias.</p></div></div>
+                <div className="usage-metric-grid">
+                  <article className="usage-metric-card"><span>Ligação deste navegador</span><strong>{browserOnline ? "Online" : "Offline"}</strong><small>Estado comunicado pelo navegador; não garante, por si só, acesso ao Supabase</small></article>
+                  <article className="usage-metric-card"><span>Recuperações de ligação</span><strong>{connectivityUsageAvailable ? numberLabel(connectivityUsage.find((item) => item.event_key === "browser_online")?.event_count ?? 0) : "Indisponível"}</strong><small>Eventos online registados · 30 dias</small></article>
+                  <article className="usage-metric-card"><span>Perdas de ligação detetadas</span><strong>{connectivityUsageAvailable ? numberLabel(connectivityUsage.find((item) => item.event_key === "browser_offline")?.event_count ?? 0) : "Indisponível"}</strong><small>Eventos offline registados após recuperação · 30 dias</small></article>
+                  <article className="usage-metric-card"><span>Ligações confirmadas ao Supabase</span><strong>{connectivityUsageAvailable ? numberLabel(connectivityUsage.find((item) => item.event_key === "supabase_connected")?.event_count ?? 0) : "Indisponível"}</strong><small>Chamadas autenticadas de registo concluídas · 30 dias</small></article>
+                </div>
+                {connectivityUsageAvailable ? (
+                  <div className="usage-history-list">
+                    <article className="usage-history-row"><strong>Última ligação confirmada ao Supabase</strong><span>{dateLabel(connectivityUsage.find((item) => item.event_key === "supabase_connected")?.last_occurred_at ?? null)}</span></article>
+                    <article className="usage-history-row"><strong>Último evento online</strong><span>{dateLabel(connectivityUsage.find((item) => item.event_key === "browser_online")?.last_occurred_at ?? null)}</span></article>
+                    <article className="usage-history-row"><strong>Último evento offline registado</strong><span>{dateLabel(connectivityUsage.find((item) => item.event_key === "browser_offline")?.last_occurred_at ?? null)}</span></article>
+                  </div>
+                ) : <div className="empty-state"><strong>Indicadores de conectividade indisponíveis.</strong><p>Aplica a migration de monitorização de conectividade e volta a atualizar.</p></div>}
+                <p className="usage-quota-note">As perdas de ligação são guardadas quando a ligação regressa. Se o navegador fechar enquanto está offline, esse evento pode não ser persistido. Esta fase não mede operações pendentes nem sincronizações concluídas/falhadas.</p>
+              </section>
+
+              <section className="usage-section usage-not-yet-measured"><strong>Indicadores ainda não ligados</strong><p>Utilizadores ativos mensais, transferência de dados e métricas reais da fila de sincronização ainda não estão ligados. A ocupação atual da base de dados e do Storage só aparece quando a consulta agregada está disponível. Estes valores não são confundidos com as médias de consumo usadas pelo Supabase para faturação.</p></section>
               <p className="usage-updated-at">Última consulta: {dateLabel(data.metrics.retrievedAt)}</p>
             </>
           ) : data.status === "not_configured" ? (
