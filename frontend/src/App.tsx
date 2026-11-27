@@ -417,13 +417,15 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     const featureKey = featureKeyByArea[activeArea];
     if (!featureKey) return;
 
-    void supabase.rpc("record_platform_feature_usage", { p_feature_key: featureKey })
-      .then(({ error }) => {
+    const recordFeatureUsage = async () => {
+      try {
+        const { error } = await supabase.rpc("record_platform_feature_usage", { p_feature_key: featureKey });
         if (error) console.warn("Não foi possível registar a utilização da funcionalidade:", error.message);
-      })
-      .catch((error: unknown) => {
+      } catch (error) {
         console.warn("Falha ao registar a utilização da funcionalidade:", error);
-      });
+      }
+    };
+    void recordFeatureUsage();
   }, [activeArea]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(true);
