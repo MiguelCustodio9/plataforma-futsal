@@ -112,7 +112,7 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
   const [trainerName, setTrainerName] = useState("");
   const [trainerEmail, setTrainerEmail] = useState("");
   const [trainerFormError, setTrainerFormError] = useState("");
-  const [inviteTarget, setInviteTarget] = useState<PlatformAccount | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<PlatformAccount | null>(null);\n  const [deleteTarget, setDeleteTarget] = useState<PlatformAccount | null>(null);
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
@@ -225,6 +225,39 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     }
   };
 
+  const deleteAccessAccount = async () => {
+    if (!deleteTarget) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
+        body: { action: "delete_account", targetProfileId: deleteTarget.id },
+      });
+      if (invokeError) {
+        if (invokeError.context instanceof Response) {
+          try {
+            const payload = await invokeError.context.clone().json() as { error?: string };
+            if (payload.error) throw new Error(payload.error);
+          } catch (readError) {
+            if (readError instanceof Error && readError.message !== "Unexpected end of JSON input") throw readError;
+          }
+        }
+        throw invokeError;
+      }
+      setNotice(typeof data?.message === "string" ? data.message : "Conta de acesso eliminada.");
+      setDeleteTarget(null);
+      await loadAccounts();
+    } catch (deleteError) {
+      console.error("Erro ao eliminar conta de acesso:", deleteError);
+      setError(deleteError instanceof Error && deleteError.message !== "Edge Function returned a non-2xx status code"
+        ? deleteError.message
+        : "Não foi possível eliminar a conta de acesso. A ficha desportiva deverá permanecer intacta.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const resendTrainerInvite = async () => {
     if (!inviteTarget) return;
     setBusy(true);
@@ -318,7 +351,8 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
                   {["treinador_principal", "staff"].includes(account.role) && account.status === "convite_pendente" && (account.role !== "staff" || Boolean(account.staff_member_id)) && <button onClick={() => setInviteTarget(account)}>Reenviar convite</button>}
                   {account.id !== currentProfileId && account.status === "ativo" && <button onClick={() => { setSelectedAccount(account); setNextStatus("suspenso"); }}>Suspender</button>}
                   {account.id !== currentProfileId && account.status === "suspenso" && <button onClick={() => { setSelectedAccount(account); setNextStatus("ativo"); }}>Reativar</button>}
-                  {!((["treinador_principal", "staff"].includes(account.role) && account.status === "convite_pendente" && (account.role !== "staff" || Boolean(account.staff_member_id))) || (account.id !== currentProfileId && ["ativo", "suspenso"].includes(account.status))) && <span className="access-no-action">—</span>}
+                  {account.id !== currentProfileId && ["treinador_principal", "staff"].includes(account.role) && account.staff_member_id && <button className="danger-button" onClick={() => setDeleteTarget(account)}>Eliminar conta</button>}
+                  {!((["treinador_principal", "staff"].includes(account.role) && account.status === "convite_pendente" && (account.role !== "staff" || Boolean(account.staff_member_id))) || (account.id !== currentProfileId && ["ativo", "suspenso"].includes(account.status)) || (account.id !== currentProfileId && ["treinador_principal", "staff"].includes(account.role) && Boolean(account.staff_member_id))) && <span className="access-no-action">—</span>}
                 </div>
               </article>
             ))}
@@ -333,6 +367,13 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
           <div className="modal-heading"><div><span className="eyebrow">GESTÃO DE CONVITES</span><h2 id="resend-trainer-title">Reenviar convite</h2></div><button className="icon-button" onClick={() => setInviteTarget(null)} aria-label="Fechar" disabled={busy}>×</button></div>
           <p>Será enviado um novo convite para <strong>{inviteTarget.display_name}</strong> ({inviteTarget.email}). O convite anterior será invalidado e a ficha Staff, as funções e o histórico serão preservados.</p>
           <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setInviteTarget(null)} disabled={busy}>Cancelar</button><button type="button" className="primary-button" onClick={() => void resendTrainerInvite()} disabled={busy}>{busy ? "A enviar…" : "Confirmar reenvio"}</button></div>
+        </section>
+      </div>}
+      {deleteTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setDeleteTarget(null); }}>
+        <section className="staff-modal" role="dialog" aria-modal="true" aria-labelledby="delete-access-title">
+          <div className="modal-heading"><div><span className="eyebrow">SEGURANÇA DA CONTA</span><h2 id="delete-access-title">Eliminar conta de acesso</h2></div><button className="icon-button" onClick={() => setDeleteTarget(null)} aria-label="Fechar" disabled={busy}>×</button></div>
+          <p>Vais eliminar o acesso de <strong>{deleteTarget.display_name}</strong> ({deleteTarget.email}). A pessoa deixará de conseguir iniciar sessão. A ficha Staff, as funções e todo o histórico desportivo serão preservados. Esta ação não pode ser anulada.</p>
+          <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setDeleteTarget(null)} disabled={busy}>Cancelar</button><button type="button" className="danger-button" onClick={() => void deleteAccessAccount()} disabled={busy}>{busy ? "A eliminar…" : "Confirmar eliminação"}</button></div>
         </section>
       </div>}
       {selectedAccount && nextStatus && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) { setSelectedAccount(null); setNextStatus(null); } }}>
