@@ -61,6 +61,47 @@ const dateLabel = (value: string | null) => {
   return Number.isNaN(date.getTime()) ? "Data indisponível" : date.toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" });
 };
 
+const FREE_PLAN_LIMITS = {
+  database: 500 * 1024 * 1024,
+  storage: 1024 * 1024 * 1024,
+} as const;
+
+type UsageRisk = { label: string; tone: "normal" | "attention" | "high" | "critical" | "reached" | "unavailable" };
+
+function usageRisk(value: number | null, limit: number): UsageRisk {
+  if (value === null || !Number.isFinite(value)) return { label: "Indisponível", tone: "unavailable" };
+  const percentage = value / limit * 100;
+  if (percentage >= 100) return { label: "Limite atingido", tone: "reached" };
+  if (percentage >= 95) return { label: "Crítico", tone: "critical" };
+  if (percentage >= 85) return { label: "Elevado", tone: "high" };
+  if (percentage >= 70) return { label: "Atenção", tone: "attention" };
+  return { label: "Normal", tone: "normal" };
+}
+
+function usageForecast(
+  history: MonthlyUsageSnapshot[],
+  metric: "database_size_bytes" | "storage_size_bytes",
+  currentValue: number | null,
+  limit: number,
+): string {
+  if (currentValue === null || !Number.isFinite(currentValue)) return "Sem dados atuais para estimar.";
+  if (currentValue >= limit) return "O limite já foi atingido; não existe tempo restante para estimar.";
+  const ordered = [...history].sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
+  if (ordered.length < 2) return "Disponível após existirem registos de pelo menos dois meses distintos.";
+  const previous = ordered[ordered.length - 2];
+  const latest = ordered[ordered.length - 1];
+  const previousValue = previous[metric];
+  const latestValue = latest[metric];
+  const elapsedDays = (new Date(latest.captured_at).getTime() - new Date(previous.captured_at).getTime()) / 86400000;
+  if (previousValue === null || latestValue === null || !Number.isFinite(elapsedDays) || elapsedDays <= 0) {
+    return "Ainda não existem observações suficientes para calcular uma tendência.";
+  }
+  const growthPerDay = (latestValue - previousValue) / elapsedDays;
+  if (growthPerDay <= 0) return "Não foi observado crescimento nos dois últimos registos.";
+  const daysRemaining = Math.ceil((limit - currentValue) / growthPerDay);
+  return `Previsão: cerca de ${daysRemaining.toLocaleString("pt-PT")} dias até ao limite, mantendo o ritmo observado.`;
+}
+
 export function UsageLimits() {
   const [data, setData] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +138,11 @@ export function UsageLimits() {
     { label: "Armazenamento", value: latest?.storageRequests ?? null, description: "Pedidos ao serviço Storage" },
   ];
 
+  const quotaMetrics = [
+    { key: "database" as const, label: "Base de dados", value: data?.metrics?.databaseSizeBytes ?? null, limit: FREE_PLAN_LIMITS.database, historyKey: "database_size_bytes" as const },
+    { key: "storage" as const, label: "Storage", value: data?.metrics?.storageSizeBytes ?? null, limit: FREE_PLAN_LIMITS.storage, historyKey: "storage_size_bytes" as const },
+  ];
+
   return (
     <div className="content usage-content">
       <div className="staff-heading">
@@ -125,6 +171,27 @@ export function UsageLimits() {
                   <article className="usage-metric-card"><span>Base de dados</span><strong>{bytesLabel(data.metrics.databaseSizeBytes)}</strong><small>Dimensão atual da base de dados PostgreSQL.</small></article>
                   <article className="usage-metric-card"><span>Storage</span><strong>{bytesLabel(data.metrics.storageSizeBytes)}</strong><small>Soma dos tamanhos dos objetos registados nos buckets.</small></article>
                 </div>
+              </section>
+
+              <section className="usage-section">
+                <div className="usage-section-heading"><div><h3>Avisos preventivos e previsão</h3><p>Comparação indicativa com as quotas do plano gratuito Supabase. Os avisos são informativos e não ativam serviços pagos.</p></div></div>
+                <div className="usage-quota-grid">
+                  {quotaMetrics.map((metric) => {
+                    const percentage = metric.value === null ? null : metric.value / metric.limit * 100;
+                    const risk = usageRisk(metric.value, metric.limit);
+                    const history = data.metrics?.monthlyHistory ?? [];
+                    return <article className={`usage-quota-card usage-risk-${risk.tone}`} key={metric.key}>
+                      <div className="usage-quota-heading"><span>{metric.label}</span><strong>{risk.label}</strong></div>
+                      <div className="usage-quota-values"><strong>{bytesLabel(metric.value)}</strong><span>de {bytesLabel(metric.limit)}</span></div>
+                      <div className="usage-quota-track" role="progressbar" aria-label={`Utilização da quota de ${metric.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage === null ? 0 : Math.min(100, Math.max(0, percentage))}>
+                        <span style={{ width: `${percentage === null ? 0 : Math.min(100, Math.max(0, percentage))}%` }} />
+                      </div>
+                      <div className="usage-quota-footer"><span>{percentage === null ? "Percentagem indisponível" : `${new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 1 }).format(percentage)}% utilizado`}</span></div>
+                      <p className="usage-forecast">{usageForecast(history, metric.historyKey, metric.value, metric.limit)}</p>
+                    </article>;
+                  })}
+                </div>
+                <p className="usage-quota-note">Referências do plano gratuito: base de dados até 500 MB por projeto e Storage até 1 GB. A ocupação apresentada é uma leitura atual, não a média faturável do ciclo. Os limites podem ser alterados pelo fornecedor; não é efetuada qualquer atualização paga ou alteração de plano.</p>
               </section>
 
               <section className="usage-section">
