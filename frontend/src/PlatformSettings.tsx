@@ -80,10 +80,12 @@ export function PlatformSettings() {
   const [localitiesLoading, setLocalitiesLoading] = useState(false);
 
   const countryOptions = useMemo(
-    () => geoClient.getCountries().map((country) => ({
-      code: country.shortName,
-      name: countryNames.of(country.shortName) ?? country.name,
-    })).sort((a, b) => countryCollator.compare(a.name, b.name)),
+    () => geoClient.getCountries().flatMap((country) => {
+      const code = country.shortName;
+      if (!code) return [];
+      const name = countryNames.of(code) ?? country.name ?? code;
+      return [{ code, name }];
+    }).sort((a, b) => countryCollator.compare(a.name, b.name)),
     [],
   );
 
