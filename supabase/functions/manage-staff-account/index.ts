@@ -108,7 +108,7 @@ Deno.serve(async (request) => {
 
   const redirectTo = Deno.env.get("APP_REDIRECT_URL") ?? "https://miguelcustodio9.github.io/plataforma-futsal/";
   const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-    member.email, { data: { display_name: member.name }, redirectTo },
+    member.email, { data: { display_name: member.name, invite_kind: "staff" }, redirectTo },
   );
   if (inviteError || !invitation.user) {
     return respond(502, { error: "Não foi possível enviar um novo convite. Verifica a configuração de email." });
