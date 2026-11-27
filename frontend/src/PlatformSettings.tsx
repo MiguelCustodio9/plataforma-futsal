@@ -185,7 +185,7 @@ export function PlatformSettings() {
           </div></section>}
 
           {tab === "Histórico de alterações" && <section className="settings-panel"><h3>Histórico de alterações</h3><p>Registos gerados automaticamente na base de dados. Consulta apenas.</p>
-            {audit.length === 0 ? <div className="empty-state"><strong>Sem alterações registadas.</strong></div> : <div className="settings-audit-list">{audit.map((row) => <article key={row.id}><div><strong>{row.setting_key}</strong><span>{row.actor_profile_id ?? "Utilizador não identificado"} · {new Date(row.created_at).toLocaleString("pt-PT")}</span></div><p><span>Anterior: {valueLabel(row.previous_value)}</span><span>Novo: {valueLabel(row.new_value)}</span></p></article>)}</div>}
+            {audit.length === 0 ? <div className="empty-state"><strong>Sem alterações registadas.</strong></div> : <div className="settings-audit-list">{audit.map((row) => <article key={row.id}><div><strong>{row.setting_key}</strong><span>{row.actor_display_name ?? row.actor_profile_id ?? "Utilizador não identificado"} · {new Date(row.created_at).toLocaleString("pt-PT")}</span></div><p><span>Anterior: {valueLabel(row.previous_value)}</span><span>Novo: {valueLabel(row.new_value)}</span></p></article>)}</div>}
           </section>}
         </>
       )}
