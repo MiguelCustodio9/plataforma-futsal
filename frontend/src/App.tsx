@@ -112,7 +112,8 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
   const [trainerName, setTrainerName] = useState("");
   const [trainerEmail, setTrainerEmail] = useState("");
   const [trainerFormError, setTrainerFormError] = useState("");
-  const [inviteTarget, setInviteTarget] = useState<PlatformAccount | null>(null);\n  const [deleteTarget, setDeleteTarget] = useState<PlatformAccount | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<PlatformAccount | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PlatformAccount | null>(null);
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
