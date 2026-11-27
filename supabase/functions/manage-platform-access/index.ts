@@ -255,7 +255,7 @@ Deno.serve(async (request) => {
     }
 
     const { error: auditError } = await admin.from("platform_access_audit").insert({
-      target_profile_id: targetProfileId,
+      target_profile_id: null,
       actor_profile_id: authData.user.id,
       event_type: "account_deleted",
       previous_status: target.status,
