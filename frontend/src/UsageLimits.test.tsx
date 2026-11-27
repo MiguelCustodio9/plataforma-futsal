@@ -64,7 +64,7 @@ describe("Utilização e limites", () => {
     expect(screen.getByText("novembro de 2026")).toBeInTheDocument();
     expect(screen.getByText("Ocupação atual")).toBeInTheDocument();
     expect(screen.getAllByText("500 MB")).toHaveLength(3);
-    expect(screen.getAllByText("100 MB")).toHaveLength(2);
+    expect(screen.getAllByText("100 MB")).toHaveLength(3);
     expect(supabase.functions.invoke).toHaveBeenCalledWith("monitor-platform-usage", { body: {} });
   });
 
