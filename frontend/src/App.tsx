@@ -427,6 +427,41 @@ function Dashboard({ profile }: { profile: UserProfile }) {
     };
     void recordFeatureUsage();
   }, [activeArea]);
+
+  useEffect(() => {
+    let pendingOfflineEvent = false;
+
+    const recordConnectivityEvent = async (eventKey: "browser_online" | "browser_offline" | "supabase_connected") => {
+      try {
+        const { error } = await supabase.rpc("record_platform_connectivity_event", { p_event_key: eventKey });
+        if (error) console.warn("Não foi possível registar o evento de conectividade:", error.message);
+      } catch (error) {
+        console.warn("Falha ao registar o evento de conectividade:", error);
+      }
+    };
+
+    const handleOffline = () => {
+      pendingOfflineEvent = true;
+    };
+
+    const handleOnline = () => {
+      if (pendingOfflineEvent) {
+        void recordConnectivityEvent("browser_offline");
+        pendingOfflineEvent = false;
+      }
+      void recordConnectivityEvent("browser_online");
+      void recordConnectivityEvent("supabase_connected");
+    };
+
+    if (navigator.onLine) void recordConnectivityEvent("supabase_connected");
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffError, setStaffError] = useState("");
