@@ -68,6 +68,7 @@ vi.mock("./lib/supabase", () => ({
     functions: {
       invoke: mockFunctionInvoke,
     },
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   },
   testSupabaseConnection: vi.fn().mockResolvedValue(true),
 }));
