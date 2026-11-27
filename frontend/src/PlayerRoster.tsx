@@ -9,7 +9,10 @@ type Player = {
   preferred_number: number | null; practice_years: number | null;
   previous_club: string | null; other_sports: string | null;
   abdominal_perimeter: number | null; photo_path: string | null; status: PlayerStatus;
+  contact_phone: string | null; contact_email: string | null;
 };
+type Guardian = { id?: string; full_name: string; relationship: string; phone: string; email: string };
+type CareerEntry = { id?: string; club_name: string; team_name: string; season_label: string; start_date: string; end_date: string };
 const positions = ["GR", "Fixo", "Ala", "Pivot", "Universal"];
 const statusLabels: Record<PlayerStatus, string> = {
   ativa: "Ativa", lesionada: "Lesionada", inativa: "Inativa", arquivada: "Arquivada",
@@ -19,7 +22,10 @@ const emptyForm = {
   birth_country: "", birth_locality: "", nationality: "Portuguesa", second_nationality: "",
   dominant_foot: "Direito", preferred_number: "", practice_years: "", previous_club: "",
   other_sports: "", abdominal_perimeter: "", status: "ativa" as PlayerStatus,
+  contact_phone: "", contact_email: "",
 };
+const emptyGuardian = (): Guardian => ({ full_name: "", relationship: "", phone: "", email: "" });
+const emptyCareer = (): CareerEntry => ({ club_name: "", team_name: "", season_label: "", start_date: "", end_date: "" });
 
 function ageFromDate(date: string) {
   if (!date) return "—";
@@ -42,12 +48,16 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Player | null>(null);
+  const [guardians, setGuardians] = useState<Guardian[]>([]);
+  const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
+  const [detailGuardians, setDetailGuardians] = useState<Guardian[]>([]);
+  const [detailCareer, setDetailCareer] = useState<CareerEntry[]>([]);
 
   const loadPlayers = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const { data, error: loadError } = await supabase.from("players")
-        .select("id,name,full_name,sex,positions,birth_date,birth_country,birth_locality,nationality,second_nationality,dominant_foot,preferred_number,practice_years,previous_club,other_sports,abdominal_perimeter,photo_path,status")
+        .select("id,name,full_name,sex,positions,birth_date,birth_country,birth_locality,nationality,second_nationality,dominant_foot,preferred_number,practice_years,previous_club,other_sports,abdominal_perimeter,photo_path,status,contact_phone,contact_email")
         .order("name", { ascending: true });
       if (loadError) throw loadError;
       setPlayers((data ?? []) as Player[]);
@@ -65,19 +75,40 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
     (statusFilter === "Todas" || player.status === statusFilter)
   ), [players, query, statusFilter]);
 
-  const openNew = () => { setEditingId(null); setForm(emptyForm); setFormError(""); setShowForm(true); };
-  const openEdit = (player: Player) => {
-    setEditingId(player.id);
-    setForm({
-      name: player.name, full_name: player.full_name, sex: player.sex, positions: player.positions ?? [],
-      birth_date: player.birth_date, birth_country: player.birth_country ?? "", birth_locality: player.birth_locality ?? "",
-      nationality: player.nationality, second_nationality: player.second_nationality ?? "",
-      dominant_foot: player.dominant_foot, preferred_number: player.preferred_number?.toString() ?? "",
-      practice_years: player.practice_years?.toString() ?? "", previous_club: player.previous_club ?? "",
-      other_sports: player.other_sports ?? "", abdominal_perimeter: player.abdominal_perimeter?.toString() ?? "",
-      status: player.status,
-    });
+  const loadRelated = async (playerId: string) => {
+    const [gr, cr] = await Promise.all([
+      supabase.from("player_guardians").select("id,full_name,relationship,phone,email").eq("player_id", playerId).order("created_at"),
+      supabase.from("player_career_history").select("id,club_name,team_name,season_label,start_date,end_date").eq("player_id", playerId).order("start_date", { ascending: true }),
+    ]);
+    if (gr.error) throw gr.error;
+    if (cr.error) throw cr.error;
+    return {
+      guardians: (gr.data ?? []).map((x: any) => ({...x,phone:x.phone ?? "",email:x.email ?? ""})) as Guardian[],
+      career: (cr.data ?? []).map((x: any) => ({...x,team_name:x.team_name ?? "",season_label:x.season_label ?? "",start_date:x.start_date ?? "",end_date:x.end_date ?? ""})) as CareerEntry[],
+    };
+  };
+  const openNew = () => {
+    setEditingId(null); setForm(emptyForm); setGuardians([emptyGuardian()]); setCareerHistory([]);
     setFormError(""); setShowForm(true);
+  };
+  const openEdit = async (player: Player) => {
+    setEditingId(player.id);
+    try {
+      const related = await loadRelated(player.id);
+      setGuardians(related.guardians.length ? related.guardians : [emptyGuardian()]);
+      setCareerHistory(related.career);
+      setForm({...emptyForm,name:player.name,full_name:player.full_name,sex:player.sex,positions:player.positions ?? [],
+        birth_date:player.birth_date,birth_country:player.birth_country ?? "",birth_locality:player.birth_locality ?? "",
+        nationality:player.nationality,second_nationality:player.second_nationality ?? "",dominant_foot:player.dominant_foot,
+        preferred_number:player.preferred_number?.toString() ?? "",practice_years:player.practice_years?.toString() ?? "",
+        previous_club:player.previous_club ?? "",other_sports:player.other_sports ?? "",
+        abdominal_perimeter:player.abdominal_perimeter?.toString() ?? "",status:player.status,
+        contact_phone:player.contact_phone ?? "",contact_email:player.contact_email ?? ""});
+      setFormError(""); setShowForm(true);
+    } catch (e) {
+      console.error("Erro ao carregar contactos e percurso:",e);
+      setError("Não foi possível carregar os contactos e o histórico da jogadora.");
+    }
   };
 
   const togglePosition = (position: string) => setForm((current) => {
@@ -105,16 +136,45 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
         second_nationality: form.second_nationality.trim() || null, dominant_foot: form.dominant_foot,
         preferred_number: number, practice_years: years, previous_club: form.previous_club.trim() || null,
         other_sports: form.other_sports.trim() || null, abdominal_perimeter: perimeter, status: form.status,
+        contact_phone: form.contact_phone.trim() || null, contact_email: form.contact_email.trim() || null,
       };
-      const result = editingId
-        ? await supabase.from("players").update(payload).eq("id", editingId)
-        : await supabase.from("players").insert(payload);
-      if (result.error) throw result.error;
+      let playerId = editingId;
+      if (editingId) {
+        const result = await supabase.from("players").update(payload).eq("id", editingId);
+        if (result.error) throw result.error;
+      } else {
+        const result = await supabase.from("players").insert(payload).select("id").single();
+        if (result.error) throw result.error;
+        playerId = result.data.id;
+      }
+      if (!playerId) throw new Error("ID da jogadora indisponível.");
+      const guardianRows = guardians.filter(g=>g.full_name.trim() && g.relationship.trim()).map(g=>({
+        ...(g.id ? {id:g.id}:{}),player_id:playerId,full_name:g.full_name.trim(),relationship:g.relationship.trim(),
+        phone:g.phone.trim() || null,email:g.email.trim() || null
+      }));
+      const careerRows = careerHistory.filter(h=>h.club_name.trim()).map(h=>({
+        ...(h.id ? {id:h.id}:{}),player_id:playerId,club_name:h.club_name.trim(),team_name:h.team_name.trim() || null,
+        season_label:h.season_label.trim() || null,start_date:h.start_date || null,end_date:h.end_date || null
+      }));
+      const syncRows = async (table:"player_guardians"|"player_career_history",rows:Array<Record<string,unknown>>) => {
+        const ids=rows.flatMap(row=>typeof row.id==="string" ? [row.id] : []);
+        let del=supabase.from(table).delete().eq("player_id",playerId);
+        if(ids.length) del=del.not("id","in","("+ids.join(",")+")");
+        const deleted=await del;if(deleted.error)throw deleted.error;
+        if(rows.length){const saved=await supabase.from(table).upsert(rows);if(saved.error)throw saved.error;}
+      };
+      await Promise.all([syncRows("player_guardians",guardianRows),syncRows("player_career_history",careerRows)]);
       await loadPlayers(); setShowForm(false); setSelected(null);
     } catch (saveError) {
       console.error("Erro ao guardar jogadora:", saveError);
       setFormError("Não foi possível guardar a ficha. Verifica os dados e as permissões do Treinador Principal.");
     } finally { setSaving(false); }
+  };
+
+  const openDetails = async (player: Player) => {
+    setSelected(player);
+    try { const related=await loadRelated(player.id);setDetailGuardians(related.guardians);setDetailCareer(related.career); }
+    catch(e){console.error("Erro ao carregar detalhe:",e);setError("Não foi possível carregar todos os dados da ficha.");}
   };
 
   const archive = async (player: Player) => {
@@ -146,7 +206,7 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
           <div className="staff-person"><span className="staff-avatar">{player.name.split(" ").map(p => p[0]).slice(0,2).join("").toLocaleUpperCase("pt-PT")}</span><div><strong>{player.name}</strong><span>{player.nationality} · #{player.preferred_number ?? "—"}</span></div></div>
           <div className="staff-roles"><span>{player.positions.join(" / ")}</span></div><div>{ageFromDate(player.birth_date)}</div>
           <div><span className={`status-pill status-${player.status}`}>{statusLabels[player.status]}</span></div>
-          <div className="staff-actions roster-actions"><button onClick={() => setSelected(player)}>Consultar</button>{canManage && <button onClick={() => openEdit(player)}>Editar</button>}</div>
+          <div className="staff-actions roster-actions"><button onClick={() => void openDetails(player)}>Consultar</button>{canManage && <button onClick={() => openEdit(player)}>Editar</button>}</div>
         </article>)}
       </section>}
     {!canManage && <p className="demo-notice">O Staff pode consultar as fichas. Apenas o Treinador Principal pode criar, editar ou alterar o estado das jogadoras.</p>}
@@ -164,6 +224,10 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
             <label><span>Nacionalidade *</span><input value={form.nationality} onChange={e => setForm({...form,nationality:e.target.value})} required/></label>
             <label><span>Segunda nacionalidade</span><input value={form.second_nationality} onChange={e => setForm({...form,second_nationality:e.target.value})}/></label>
           </div></div>
+          <div className="roster-form-section"><h3>Contactos da atleta</h3><div className="form-grid">
+            <label><span>Telemóvel</span><input type="tel" value={form.contact_phone} onChange={e=>setForm({...form,contact_phone:e.target.value})} maxLength={40}/></label>
+            <label><span>Email</span><input type="email" value={form.contact_email} onChange={e=>setForm({...form,contact_email:e.target.value})} maxLength={254}/></label>
+          </div></div>
           <div className="roster-form-section"><h3>Características desportivas</h3><div className="form-grid">
             <label><span>Pé dominante *</span><select value={form.dominant_foot} onChange={e => setForm({...form,dominant_foot:e.target.value})}><option>Direito</option><option>Esquerdo</option><option>Ambidestro</option></select></label>
             <label><span>Número preferido (1–99)</span><input type="number" min="1" max="99" value={form.preferred_number} onChange={e => setForm({...form,preferred_number:e.target.value})}/></label>
@@ -172,6 +236,25 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
             <label><span>Outros desportos/atividades</span><input value={form.other_sports} onChange={e => setForm({...form,other_sports:e.target.value})}/></label>
             <label><span>Perímetro abdominal (cm)</span><input type="number" min="0.1" max="300" step="0.1" value={form.abdominal_perimeter} onChange={e => setForm({...form,abdominal_perimeter:e.target.value})}/></label>
           </div><fieldset className="role-picker"><legend>Posições *</legend><div>{positions.map(position => <label key={position}><input type="checkbox" checked={form.positions.includes(position)} onChange={() => togglePosition(position)}/>{position}</label>)}</div><small>Universal é uma posição exclusiva e não pode ser combinada com outras.</small></fieldset></div>
+          <div className="roster-form-section"><div className="roster-section-heading"><h3>Encarregados de Educação</h3><button type="button" className="secondary-button" onClick={()=>setGuardians(v=>[...v,emptyGuardian()])}>+ Adicionar EE</button></div>
+            <p className="field-note">Dados de contacto dos Encarregados de Educação. Não são criadas contas de acesso à plataforma.</p>
+            {guardians.map((g,i)=><div className="roster-related-card" key={g.id ?? ("guardian-"+i)}><div className="form-grid">
+              <label><span>Nome completo *</span><input value={g.full_name} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,full_name:e.target.value}:x))}/></label>
+              <label><span>Parentesco *</span><input value={g.relationship} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,relationship:e.target.value}:x))} placeholder="Mãe, pai, tutor…"/></label>
+              <label><span>Telemóvel</span><input type="tel" value={g.phone} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,phone:e.target.value}:x))}/></label>
+              <label><span>Email</span><input type="email" value={g.email} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,email:e.target.value}:x))}/></label>
+            </div><button type="button" className="text-danger-button" onClick={()=>setGuardians(v=>v.filter((_,j)=>j!==i))}>Remover EE</button></div>)}
+          </div>
+          <div className="roster-form-section"><div className="roster-section-heading"><h3>Histórico de carreira</h3><button type="button" className="secondary-button" onClick={()=>setCareerHistory(v=>[...v,emptyCareer()])}>+ Adicionar percurso</button></div>
+            <p className="field-note">Clubes, equipas e épocas anteriores. A ligação à lista central de clubes será integrada no módulo Clubes.</p>
+            {careerHistory.map((h,i)=><div className="roster-related-card" key={h.id ?? ("career-"+i)}><div className="form-grid">
+              <label><span>Clube *</span><input value={h.club_name} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,club_name:e.target.value}:x))}/></label>
+              <label><span>Equipa</span><input value={h.team_name} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,team_name:e.target.value}:x))}/></label>
+              <label><span>Época</span><input value={h.season_label} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,season_label:e.target.value}:x))} placeholder="2024/2025"/></label>
+              <label><span>Data de início</span><input type="date" value={h.start_date} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,start_date:e.target.value}:x))}/></label>
+              <label><span>Data de fim</span><input type="date" value={h.end_date} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,end_date:e.target.value}:x))}/></label>
+            </div><button type="button" className="text-danger-button" onClick={()=>setCareerHistory(v=>v.filter((_,j)=>j!==i))}>Remover registo</button></div>)}
+          </div>
           <div className="roster-form-section"><h3>Estado desportivo</h3><label className="roster-status-field"><span>Estado</span><select value={form.status} onChange={e => setForm({...form,status:e.target.value as PlayerStatus})}>{Object.entries(statusLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></div>
           {formError && <p className="form-error" role="alert">{formError}</p>}
           <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)} disabled={saving}>Cancelar</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "A guardar…" : "Guardar ficha"}</button></div>
@@ -186,12 +269,15 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
           <div><span>Sexo</span><strong>{selected.sex}</strong></div><div><span>Data de nascimento</span><strong>{new Date(selected.birth_date+"T00:00:00").toLocaleDateString("pt-PT")}</strong></div>
           <div><span>Naturalidade</span><strong>{[selected.birth_locality,selected.birth_country].filter(Boolean).join(", ") || "—"}</strong></div>
           <div><span>Nacionalidade</span><strong>{[selected.nationality,selected.second_nationality].filter(Boolean).join(" / ")}</strong></div>
+          <div><span>Contactos da atleta</span><strong>{[selected.contact_phone,selected.contact_email].filter(Boolean).join(" · ") || "—"}</strong></div>
           <div><span>Posições</span><strong>{selected.positions.join(" / ")}</strong></div><div><span>Pé dominante</span><strong>{selected.dominant_foot}</strong></div>
           <div><span>Número preferido</span><strong>{selected.preferred_number ?? "—"}</strong></div><div><span>Anos de prática</span><strong>{selected.practice_years ?? "—"}</strong></div>
           <div><span>Clube anterior</span><strong>{selected.previous_club || "—"}</strong></div><div><span>Outros desportos/atividades</span><strong>{selected.other_sports || "—"}</strong></div>
           <div><span>Perímetro abdominal</span><strong>{selected.abdominal_perimeter == null ? "—" : `${selected.abdominal_perimeter} cm`}</strong></div>
           <div><span>Estado</span><strong>{statusLabels[selected.status]}</strong></div>
         </div>
+        <div className="roster-detail-related"><h3>Encarregados de Educação</h3>{detailGuardians.length ? detailGuardians.map(g=><div key={g.id}><strong>{g.full_name}</strong><span>{g.relationship} · {[g.phone,g.email].filter(Boolean).join(" · ")}</span></div>) : <p>Sem Encarregados de Educação registados.</p>}</div>
+        <div className="roster-detail-related"><h3>Histórico de carreira</h3>{detailCareer.length ? detailCareer.map(h=><div key={h.id}><strong>{h.club_name}</strong><span>{[h.team_name,h.season_label,[h.start_date,h.end_date].filter(Boolean).join(" – ")].filter(Boolean).join(" · ")}</span></div>) : <p>Sem histórico de carreira registado.</p>}</div>
         <div className="modal-actions">{canManage && <button className="danger-button" onClick={() => void archive(selected)}>Arquivar ficha</button>}<button className="secondary-button" onClick={() => setSelected(null)}>Fechar</button></div>
       </section>
     </div>}
