@@ -60,8 +60,8 @@ describe("Utilização e limites", () => {
     expect(screen.getByText("Histórico mensal persistente")).toBeInTheDocument();
     expect(screen.getByText("novembro de 2026")).toBeInTheDocument();
     expect(screen.getByText("Ocupação atual")).toBeInTheDocument();
-    expect(screen.getByText("500 MB")).toBeInTheDocument();
-    expect(screen.getByText("100 MB")).toBeInTheDocument();
+    expect(screen.getAllByText("500 MB")).toHaveLength(2);
+    expect(screen.getAllByText("100 MB")).toHaveLength(2);
     expect(supabase.functions.invoke).toHaveBeenCalledWith("monitor-platform-usage", { body: {} });
   });
 
