@@ -238,6 +238,13 @@ Deno.serve(async (request) => {
       if (data.users.length < 100) break;
     }
 
+    const { data: staffLinks, error: staffLinksError } = await admin.from("staff_members")
+      .select("id, profile_id").not("profile_id", "is", null);
+    if (staffLinksError) {
+      console.error("Erro ao associar contas às fichas Staff:", staffLinksError.message);
+      return respond(500, { error: "Não foi possível associar as contas às respetivas fichas Staff." });
+    }
+    const staffMemberByProfileId = new Map((staffLinks ?? []).map((member) => [member.profile_id, member.id]));
     const userById = new Map(users.map((user) => [user.id, user]));
     const accounts = (profiles ?? []).map((profile) => {
       const authUser = userById.get(profile.id);
@@ -247,6 +254,7 @@ Deno.serve(async (request) => {
         email: authUser?.email ?? "",
         role: profile.role,
         status: profile.status,
+        staff_member_id: staffMemberByProfileId.get(profile.id) ?? null,
         created_at: profile.created_at,
         last_sign_in_at: authUser?.last_sign_in_at ?? "",
       };
