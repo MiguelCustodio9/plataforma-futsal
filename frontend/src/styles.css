@@ -301,3 +301,9 @@ button { cursor: pointer; }
   .settings-panel { padding: 17px; }
   .service-status-list { grid-template-columns: 1fr; }
 }
+
+
+.settings-panel input[type="file"] { max-width: 100%; color: #cbd5ce; font: inherit; font-size: .85rem; }
+.settings-emblem-note { margin: -7px 0 0 !important; font-size: .82rem; overflow-wrap: anywhere; }
+.settings-preview-emblems { display: flex; gap: 12px; margin-top: 14px; }
+.settings-preview-emblems img { width: 72px; height: 72px; object-fit: contain; border-radius: 10px; background: #fff; padding: 5px; }
