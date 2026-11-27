@@ -192,7 +192,7 @@ describe("plataforma de futsal", () => {
     await screen.findByRole("heading", { name: "Centro de controlo" });
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Segurança e atividade/ }));
     expect(await screen.findByRole("heading", { name: "Segurança e atividade" })).toBeInTheDocument();
-    expect(await screen.findByText("Conta de teste")).toBeInTheDocument();
+    expect(await screen.findAllByText("Conta de teste")).not.toHaveLength(0);
     expect(screen.getByText("Confirmado")).toBeInTheDocument();
     expect(screen.getByText("Conta suspensa")).toBeInTheDocument();
   });
