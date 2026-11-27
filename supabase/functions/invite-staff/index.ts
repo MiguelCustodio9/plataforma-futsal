@@ -97,7 +97,7 @@ Deno.serve(async (request) => {
 
   const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
     member.email,
-    { data: { display_name: member.name }, redirectTo },
+    { data: { display_name: member.name, invite_kind: "staff" }, redirectTo },
   );
   if (inviteError || !invitation.user) {
     console.error("Erro ao enviar convite de Staff:", {
