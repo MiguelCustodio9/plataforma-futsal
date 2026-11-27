@@ -147,7 +147,7 @@ describe("plataforma de futsal", () => {
     expect(screen.getByText("Classificações")).toBeInTheDocument();
     expect(screen.getByText("Estatísticas coletivas")).toBeInTheDocument();
     expect(screen.getByText(/Não são apresentados zeros, estimativas ou estatísticas inventadas/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     expect(await screen.findByText("Não foram encontrados elementos.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Adicionar elemento/ })).toBeInTheDocument();
   });
