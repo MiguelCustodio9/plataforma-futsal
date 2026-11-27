@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
     }
 
     const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { display_name: displayName },
+      data: { display_name: displayName, invite_kind: "staff" },
       redirectTo: Deno.env.get("APP_REDIRECT_URL") ?? "https://miguelcustodio9.github.io/plataforma-futsal/",
     });
     if (inviteError || !invitation.user) {
@@ -158,7 +158,7 @@ Deno.serve(async (request) => {
 
     const redirectTo = Deno.env.get("APP_REDIRECT_URL") ?? "https://miguelcustodio9.github.io/plataforma-futsal/";
     const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { display_name: target.display_name },
+      data: { display_name: target.display_name, invite_kind: "staff" },
       redirectTo,
     });
     if (inviteError || !invitation.user) {
