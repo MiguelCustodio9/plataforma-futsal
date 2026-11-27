@@ -4,7 +4,10 @@ import { supabase } from "./lib/supabase";
 import { UsageLimits } from "./UsageLimits";
 
 vi.mock("./lib/supabase", () => ({
-  supabase: { functions: { invoke: vi.fn() } },
+  supabase: {
+    functions: { invoke: vi.fn() },
+    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+  },
 }));
 
 afterEach(() => cleanup());
@@ -51,8 +54,19 @@ describe("Utilização e limites", () => {
       error: null,
     } as never);
 
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: [
+        { feature_key: "staff", event_count: 18 },
+        { feature_key: "usage_limits", event_count: 7 },
+      ],
+      error: null,
+    } as never);
+
     render(<UsageLimits />);
     expect(await screen.findByText("Monitorização ligada")).toBeInTheDocument();
+    expect(screen.getByText("Utilização por funcionalidade")).toBeInTheDocument();
+    expect(screen.getByText("Gestão de Staff")).toBeInTheDocument();
+    expect(screen.getByText("18")).toBeInTheDocument();
     expect(screen.getAllByText(/12\s?345/)).toHaveLength(2);
     expect(screen.getByText("Autenticação")).toBeInTheDocument();
     expect(screen.getAllByText("840")).toHaveLength(2);
@@ -66,6 +80,7 @@ describe("Utilização e limites", () => {
     expect(screen.getAllByText("500 MB")).toHaveLength(3);
     expect(screen.getAllByText("100 MB")).toHaveLength(3);
     expect(supabase.functions.invoke).toHaveBeenCalledWith("monitor-platform-usage", { body: {} });
+    expect(supabase.rpc).toHaveBeenCalledWith("get_platform_feature_usage");
   });
 
   it("explica como configurar o token sem o expor na interface", async () => {
