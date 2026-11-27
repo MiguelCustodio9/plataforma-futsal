@@ -9,6 +9,14 @@ type UsagePoint = {
   storageRequests: number | null;
 };
 
+type MonthlyUsageSnapshot = {
+  snapshot_month: string;
+  database_size_bytes: number | null;
+  storage_size_bytes: number | null;
+  api_requests_count: number | null;
+  captured_at: string;
+};
+
 type UsageMetrics = {
   apiRequestsCount: number | null;
   apiCounts: UsagePoint[];
@@ -18,6 +26,8 @@ type UsageMetrics = {
   databaseSizeBytes: number | null;
   storageSizeBytes: number | null;
   storageSnapshotAvailable: boolean;
+  monthlyHistory: MonthlyUsageSnapshot[];
+  monthlyHistoryAvailable: boolean;
   retrievedAt: string;
 };
 
@@ -38,6 +48,11 @@ const bytesLabel = (value: number | null | undefined) => {
   let unit = 0;
   while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1; }
   return `${new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 2 }).format(size)} ${units[unit]}`;
+};
+
+const monthLabel = (value: string) => {
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? "Mês indisponível" : date.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
 };
 
 const dateLabel = (value: string | null) => {
@@ -110,6 +125,11 @@ export function UsageLimits() {
                   <article className="usage-metric-card"><span>Base de dados</span><strong>{bytesLabel(data.metrics.databaseSizeBytes)}</strong><small>Dimensão atual da base de dados PostgreSQL.</small></article>
                   <article className="usage-metric-card"><span>Storage</span><strong>{bytesLabel(data.metrics.storageSizeBytes)}</strong><small>Soma dos tamanhos dos objetos registados nos buckets.</small></article>
                 </div>
+              </section>
+
+              <section className="usage-section">
+                <div className="usage-section-heading"><div><h3>Histórico mensal persistente</h3><p>Uma observação por mês, atualizada quando consultas a monitorização. Mantém até 12 meses de registos.</p></div></div>
+                {data.metrics.monthlyHistory?.length ? <div className="usage-history-list">{data.metrics.monthlyHistory.map((point) => <article className="usage-history-row" key={point.snapshot_month}><time>{monthLabel(point.snapshot_month)}</time><span>Base de dados: <strong>{bytesLabel(point.database_size_bytes)}</strong></span><span>Storage: <strong>{bytesLabel(point.storage_size_bytes)}</strong></span><span>Pedidos API: <strong>{numberLabel(point.api_requests_count)}</strong></span><span>Atualizado: <strong>{dateLabel(point.captured_at)}</strong></span></article>)}</div> : <div className="empty-state"><strong>Ainda não existem registos mensais.</strong><p>O primeiro registo será criado quando a migration estiver aplicada e a próxima consulta for concluída.</p></div>}
               </section>
 
               <section className="usage-section">
