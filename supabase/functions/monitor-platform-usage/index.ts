@@ -15,6 +15,14 @@ function respond(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
+type MonthlySnapshot = {
+  snapshot_month: string;
+  database_size_bytes: number | null;
+  storage_size_bytes: number | null;
+  api_requests_count: number | null;
+  captured_at: string;
+};
+
 type UsagePoint = {
   timestamp?: string;
   total_auth_requests?: number;
@@ -76,6 +84,7 @@ Deno.serve(async (request) => {
 
   let databaseSizeBytes: number | null = null;
   let storageSizeBytes: number | null = null;
+  let monthlyHistory: MonthlySnapshot[] = [];
   if (serviceRoleKey) {
     const metricsClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -87,6 +96,17 @@ Deno.serve(async (request) => {
         ? Number(snapshot.database_size_bytes) : null;
       storageSizeBytes = Number.isFinite(Number(snapshot.storage_size_bytes))
         ? Number(snapshot.storage_size_bytes) : null;
+    }
+    const { data: historyRows, error: historyError } = await metricsClient.rpc(
+      "record_platform_usage_monthly_snapshot",
+      {
+        p_database_size_bytes: databaseSizeBytes,
+        p_storage_size_bytes: storageSizeBytes,
+        p_api_requests_count: requestCountValue,
+      },
+    );
+    if (!historyError && Array.isArray(historyRows)) {
+      monthlyHistory = historyRows.filter((row: MonthlySnapshot) => row && typeof row.snapshot_month === "string");
     }
   }
 
@@ -136,6 +156,8 @@ Deno.serve(async (request) => {
       databaseSizeBytes,
       storageSizeBytes,
       storageSnapshotAvailable: databaseSizeBytes !== null && storageSizeBytes !== null,
+      monthlyHistory,
+      monthlyHistoryAvailable: monthlyHistory.length > 0,
       retrievedAt: new Date().toISOString(),
     },
   });
