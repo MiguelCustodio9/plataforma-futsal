@@ -650,7 +650,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 
       <section className="main-area" id="inicio">
         <header className="topbar">
-          <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Staff" ? "Gestão de Staff" : activeArea === "Gestão de acessos" ? "Gestão de acessos" : activeArea === "Configurações da plataforma" ? "Configurações da plataforma" : "Centro de controlo"}</h1></div>
+          <div><span className="eyebrow">PLATAFORMA PRIVADA</span><h1>{activeArea === "Staff" ? "Gestão de Staff" : activeArea === "Gestão de acessos" ? "Gestão de acessos" : activeArea === "Configurações da plataforma" ? "Configurações da plataforma" : activeArea === "Segurança e atividade" ? "Segurança e atividade" : "Centro de controlo"}</h1></div>
           <div className="topbar-meta"><div className="account-identity"><strong>{profile.displayName}</strong><span>{roleLabels[profile.role]}</span></div><span className="environment">SESSÃO AUTENTICADA</span><button className="sign-out-button" onClick={() => void supabase.auth.signOut()}>Terminar sessão</button></div>
         </header>
 
