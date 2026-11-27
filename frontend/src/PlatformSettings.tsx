@@ -65,6 +65,10 @@ export function PlatformSettings() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [authStatus, setAuthStatus] = useState("A verificar…");
   const [databaseStatus, setDatabaseStatus] = useState("A verificar…");
+  const [clubFile, setClubFile] = useState<File | null>(null);
+  const [teamFile, setTeamFile] = useState<File | null>(null);
+  const [clubPreview, setClubPreview] = useState("");
+  const [teamPreview, setTeamPreview] = useState("");
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -115,10 +119,10 @@ export function PlatformSettings() {
     setNotice("");
     const { error: saveError } = await supabase.from("platform_settings").update({
       club_name: draft.club_name.trim(),
-      club_emblem_path: draft.club_emblem_path || null,
+      club_emblem_path: clubEmblemPath || null,
       club_colors: draft.club_colors,
       team_name: draft.team_name.trim(),
-      team_emblem_path: draft.team_emblem_path || null,
+      team_emblem_path: teamEmblemPath || null,
       team_colors: draft.team_colors,
       country: draft.country.trim(),
       locality: draft.locality.trim(),
@@ -153,7 +157,7 @@ export function PlatformSettings() {
           {tab === "Identidade do clube" && <section className="settings-panel">
             <h3>Identidade do clube</h3><p>As alterações são confirmadas antes de guardar. A identidade histórica deve permanecer associada aos registos da respetiva época.</p>
             <label>Nome do clube<input value={draft.club_name} maxLength={160} onChange={(event) => updateDraft("club_name", event.target.value)} /></label>
-            <label>Caminho do emblema no armazenamento<input value={draft.club_emblem_path ?? ""} onChange={(event) => updateDraft("club_emblem_path", event.target.value)} placeholder="A carregar o emblema numa etapa de armazenamento" /></label>
+            <label>Emblema do clube<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0] ?? null; if (!file) return; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) { setError("O emblema deve ser PNG, JPG ou WebP e ter no máximo 3 MB."); event.target.value = ""; return; } setError(""); setClubFile(file); setClubPreview(URL.createObjectURL(file)); }} /></label>{(clubPreview || draft.club_emblem_path) && <p className="settings-emblem-note">{clubPreview ? "Novo emblema selecionado para pré-visualização." : `Emblema guardado: ${draft.club_emblem_path}`}</p>}
             <div className="settings-color-row"><label>Cor principal<input type="color" value={draft.club_colors.principal ?? "#166534"} onChange={(event) => updateColor("club", "principal", event.target.value)} /></label><label>Cor secundária<input type="color" value={draft.club_colors.secundaria ?? "#f8fafc"} onChange={(event) => updateColor("club", "secundaria", event.target.value)} /></label></div>
             <button className="primary-button" type="button" onClick={() => setShowConfirmation(true)}>Pré-visualizar e guardar</button>
           </section>}
@@ -161,7 +165,7 @@ export function PlatformSettings() {
           {tab === "Identidade da equipa" && <section className="settings-panel">
             <h3>Identidade da equipa</h3><p>A identidade da equipa é independente da identidade do clube.</p>
             <label>Nome da equipa<input value={draft.team_name} maxLength={160} onChange={(event) => updateDraft("team_name", event.target.value)} /></label>
-            <label>Caminho do emblema no armazenamento<input value={draft.team_emblem_path ?? ""} onChange={(event) => updateDraft("team_emblem_path", event.target.value)} placeholder="A carregar o emblema numa etapa de armazenamento" /></label>
+            <label>Emblema da equipa<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0] ?? null; if (!file) return; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) { setError("O emblema deve ser PNG, JPG ou WebP e ter no máximo 3 MB."); event.target.value = ""; return; } setError(""); setTeamFile(file); setTeamPreview(URL.createObjectURL(file)); }} /></label>{(teamPreview || draft.team_emblem_path) && <p className="settings-emblem-note">{teamPreview ? "Novo emblema selecionado para pré-visualização." : `Emblema guardado: ${draft.team_emblem_path}`}</p>}
             <div className="settings-color-row"><label>Cor principal<input type="color" value={draft.team_colors.principal ?? "#166534"} onChange={(event) => updateColor("team", "principal", event.target.value)} /></label><label>Cor secundária<input type="color" value={draft.team_colors.secundaria ?? "#f8fafc"} onChange={(event) => updateColor("team", "secundaria", event.target.value)} /></label></div>
             <button className="primary-button" type="button" onClick={() => setShowConfirmation(true)}>Pré-visualizar e guardar</button>
           </section>}
@@ -192,7 +196,7 @@ export function PlatformSettings() {
       {showConfirmation && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) resetDraft(); }}>
         <section className="staff-modal settings-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="settings-confirm-title">
           <div className="modal-heading"><div><span className="eyebrow">CONFIRMAÇÃO DE ALTERAÇÕES</span><h2 id="settings-confirm-title">Pré-visualização</h2></div><button className="icon-button" type="button" onClick={resetDraft} aria-label="Fechar" disabled={saving}>×</button></div>
-          <div className="settings-preview"><div><strong>{draft.club_name || "Clube sem nome"}</strong><span>{draft.team_name || "Equipa sem nome"}</span></div><div className="settings-preview-swatches"><i style={{ background: draft.club_colors.principal ?? "#166534" }} /><i style={{ background: draft.club_colors.secundaria ?? "#f8fafc" }} /><i style={{ background: draft.team_colors.principal ?? "#166534" }} /><i style={{ background: draft.team_colors.secundaria ?? "#f8fafc" }} /></div><p>{draft.country} · {draft.locality} · {draft.timezone}</p></div>
+          <div className="settings-preview"><div><strong>{draft.club_name || "Clube sem nome"}</strong><span>{draft.team_name || "Equipa sem nome"}</span></div>{(clubPreview || teamPreview) && <div className="settings-preview-emblems">{clubPreview && <img src={clubPreview} alt="Pré-visualização do emblema do clube" />}{teamPreview && <img src={teamPreview} alt="Pré-visualização do emblema da equipa" />}</div>}<div className="settings-preview-swatches"><i style={{ background: draft.club_colors.principal ?? "#166534" }} /><i style={{ background: draft.club_colors.secundaria ?? "#f8fafc" }} /><i style={{ background: draft.team_colors.principal ?? "#166534" }} /><i style={{ background: draft.team_colors.secundaria ?? "#f8fafc" }} /></div><p>{draft.country} · {draft.locality} · {draft.timezone}</p></div>
           <p>Ao guardar, as novas definições passam a ser utilizadas na configuração atual. Os registos históricos não devem ser alterados retroativamente.</p>
           <form onSubmit={save}><div className="modal-actions"><button type="button" className="secondary-button" onClick={resetDraft} disabled={saving}>Cancelar</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "A guardar…" : "Confirmar e guardar"}</button></div></form>
         </section>
