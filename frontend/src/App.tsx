@@ -641,7 +641,7 @@ function Dashboard({ profile }: { profile: UserProfile }) {
           {visibleModules.map((module) => (
             <button key={module} className={activeArea === module ? "nav-link active" : "nav-link"} onClick={() => setActiveArea(module)} aria-current={activeArea === module ? "page" : undefined}>
               <span aria-hidden="true">◇</span> {module}
-              {module !== "Staff" && module !== "Gestão de acessos" && module !== "Configurações da plataforma" && <span className="soon">A preparar</span>}
+              {module !== "Staff" && module !== "Gestão de acessos" && module !== "Configurações da plataforma" && module !== "Segurança e atividade" && <span className="soon">A preparar</span>}
             </button>
           ))}
         </nav>
