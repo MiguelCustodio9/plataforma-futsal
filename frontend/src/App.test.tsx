@@ -158,7 +158,7 @@ describe("plataforma de futsal", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Resumo da equipa" })).toBeInTheDocument();
     expect(screen.getByText("Próximo jogo")).toBeInTheDocument();
     expect(screen.getByText("Destaques individuais")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Staff/ }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Staff/ }));
     expect(await screen.findByText("Não foram encontrados elementos.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Adicionar elemento/ })).not.toBeInTheDocument();
   });
