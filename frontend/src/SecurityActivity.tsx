@@ -120,7 +120,7 @@ export function SecurityActivity() {
         <article><span>Email por confirmar</span><strong>{loading ? "—" : counts.unconfirmed}</strong></article>
       </section>
       <section className="security-section">
-        <div className="security-section-heading"><div><h3>Estado das contas</h3><p>Estado da plataforma, confirmação do email e último acesso registado pelo Supabase Auth.</p></div><label className="security-search"><span>Pesquisar</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome, email ou perfil…" /></label></div>
+        <div className="security-section-heading"><div><h3>Estado das contas</h3><p>Estado da plataforma, confirmação do email e último acesso registado pelo Supabase Auth.</p></div><label className="security-search"><span>Pesquisar contas</span><div className="security-search-control"><span className="security-search-icon" aria-hidden="true">⌕</span><input aria-label="Pesquisar contas" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome, email ou perfil…" /><button type="button" className="security-search-clear" onClick={() => setQuery("")} disabled={!query} aria-label="Limpar pesquisa">×</button></div><small className="security-search-hint">{filteredAccounts.length} de {accounts.length} contas</small></label></div>
         {loading ? <div className="empty-state"><strong>A carregar informação de segurança…</strong></div> : filteredAccounts.length === 0 ? <div className="empty-state"><strong>Não foram encontradas contas.</strong></div> : (
           <div className="security-table-wrap"><table className="security-table"><thead><tr><th>Conta</th><th>Perfil</th><th>Estado</th><th>Email</th><th>Último acesso</th></tr></thead><tbody>
             {filteredAccounts.map((account) => <tr key={account.id}>
@@ -136,11 +136,11 @@ export function SecurityActivity() {
       <section className="security-section">
         <div className="security-section-heading"><div><h3>Registo de atividade</h3><p>Operações de gestão de acessos, alterações às configurações e operações Staff auditadas.</p></div><label className="security-filter"><span>Origem</span><select value={eventFilter} onChange={(event) => setEventFilter(event.target.value)}><option value="todos">Todas</option><option value="acessos">Gestão de acessos</option><option value="configuracoes">Configurações</option><option value="staff">Operações Staff</option></select></label></div>
         {loading ? <div className="empty-state"><strong>A carregar atividade…</strong></div> : filteredEvents.length === 0 ? <div className="empty-state"><strong>Não existem registos para os filtros selecionados.</strong></div> : (
-          <div className="security-activity-list">{filteredEvents.map((event) => <article className="security-event" key={event.id}>
+          <div className="security-activity-scroll"><div className="security-activity-list">{filteredEvents.map((event) => <article className="security-event" key={event.id}>
             <span className={`security-event-icon ${event.source}`} aria-hidden="true">{event.source === "acessos" ? "◈" : event.source === "configuracoes" ? "⚙" : "◇"}</span>
             <div className="security-event-main"><strong>{eventLabels[event.event_type] ?? event.event_type.replaceAll("_", " ")}</strong><span>{event.detail || event.target_name || "Operação administrativa"}</span><small>Por {event.actor_name || "Utilizador não identificado"}{event.target_name ? ` · Alvo: ${event.target_name}` : ""}</small></div>
             <time dateTime={event.created_at}>{dateLabel(event.created_at)}</time>
-          </article>)}</div>
+          </article>)}</div></div>
         )}
       </section>
       <section className="security-note"><strong>Limites da informação disponível</strong><p>O último acesso corresponde ao registo disponibilizado pelo Supabase Auth; não representa uma lista de sessões ou dispositivos. Tentativas de início de sessão, histórico de IP/dispositivo e estado de autenticação de dois fatores não são apresentados porque ainda não estão instrumentados nesta plataforma. Não são inferidos nem simulados.</p></section>
