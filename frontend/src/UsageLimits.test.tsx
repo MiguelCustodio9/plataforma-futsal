@@ -44,7 +44,7 @@ describe("Utilização e limites", () => {
     expect(await screen.findByText("Monitorização ligada")).toBeInTheDocument();
     expect(screen.getByText(/12\s?345/)).toBeInTheDocument();
     expect(screen.getByText("Autenticação")).toBeInTheDocument();
-    expect(screen.getByText("840")).toBeInTheDocument();
+    expect(screen.getAllByText("840")).toHaveLength(2);
     expect(screen.getByText("Histórico de utilização")).toBeInTheDocument();
     expect(supabase.functions.invoke).toHaveBeenCalledWith("monitor-platform-usage", { body: {} });
   });
