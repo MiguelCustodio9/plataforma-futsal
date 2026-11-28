@@ -53,6 +53,27 @@ Deno.serve(async (request) => {
   let payload: { action?: unknown; targetProfileId?: unknown; status?: unknown; displayName?: unknown; email?: unknown };
   try { payload = await request.json(); } catch { return respond(400, { error: "Pedido inválido." }); }
 
+  if (payload.action === "list_unlinked_staff") {
+    const { data: members, error: membersError } = await admin.from("staff_members")
+      .select("id, name, full_name, email, staff_member_roles(role_name)")
+      .is("profile_id", null)
+      .neq("status", "arquivado")
+      .order("full_name", { ascending: true });
+    if (membersError) {
+      console.error("Erro ao listar fichas Staff sem conta:", membersError.message);
+      return respond(500, { error: "Não foi possível carregar as fichas Staff disponíveis." });
+    }
+    return respond(200, {
+      staff: (members ?? []).map((member) => ({
+        id: member.id,
+        name: member.name,
+        full_name: member.full_name,
+        email: member.email,
+        roles: (member.staff_member_roles ?? []).map((role: { role_name: string }) => role.role_name),
+      })),
+    });
+  }
+
   if (payload.action === "create_trainer_principal") {
     const displayName = typeof payload.displayName === "string" ? payload.displayName.trim() : "";
     const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
@@ -60,18 +81,37 @@ Deno.serve(async (request) => {
       return respond(400, { error: "Indica um nome e um endereço de email válido." });
     }
 
-    // Uma ficha Staff é preservada quando a conta de acesso é eliminada.
-    // Antes de criar uma nova ficha, reutilizamos a ficha histórica do mesmo email.
-    const { data: existingStaff, error: existingStaffError } = await admin.from("staff_members")
-      .select("id, profile_id, account_deleted_at")
-      .eq("email", email)
-      .maybeSingle();
-    if (existingStaffError) {
-      console.error("Erro ao verificar ficha Staff existente:", existingStaffError.message);
-      return respond(500, { error: "Não foi possível verificar se já existe uma ficha Staff para este email." });
-    }
-    if (existingStaff?.profile_id) {
-      return respond(409, { error: "Este email já está associado a uma ficha Staff com conta. Consulta a Gestão de acessos antes de criar outra." });
+    // A ficha é escolhida explicitamente na Gestão de acessos.
+    // Sem seleção, só criamos uma nova se não existir já uma ficha com o mesmo email.
+    const staffMemberId = isUuid(payload.staffMemberId) ? payload.staffMemberId : null;
+    let existingStaff: { id: string; profile_id: string | null; account_deleted_at: string | null; name: string; full_name: string; email: string } | null = null;
+    if (staffMemberId) {
+      const { data: selectedStaff, error: selectedStaffError } = await admin.from("staff_members")
+        .select("id, profile_id, account_deleted_at, name, full_name, email")
+        .eq("id", staffMemberId)
+        .maybeSingle();
+      if (selectedStaffError || !selectedStaff) {
+        return respond(404, { error: "A ficha Staff selecionada já não está disponível. Atualiza a lista e tenta novamente." });
+      }
+      if (selectedStaff.profile_id) {
+        return respond(409, { error: "A ficha Staff selecionada já está associada a uma conta. Atualiza a lista e escolhe outra ficha." });
+      }
+      if (selectedStaff.email.toLowerCase() !== email) {
+        return respond(409, { error: "O email de acesso tem de corresponder ao email da ficha Staff selecionada." });
+      }
+      existingStaff = selectedStaff;
+    } else {
+      const { data: sameEmailStaff, error: existingStaffError } = await admin.from("staff_members")
+        .select("id, profile_id, account_deleted_at, name, full_name, email")
+        .ilike("email", email)
+        .maybeSingle();
+      if (existingStaffError) {
+        console.error("Erro ao verificar ficha Staff existente:", existingStaffError.message);
+        return respond(500, { error: "Não foi possível verificar se já existe uma ficha Staff para este email." });
+      }
+      if (sameEmailStaff) {
+        return respond(409, { error: "Já existe uma ficha Staff com este email. Seleciona essa ficha na lista em vez de criar outra." });
+      }
     }
 
     const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -99,8 +139,8 @@ Deno.serve(async (request) => {
     const sentAt = new Date();
     const staffPayload = {
       profile_id: invitedUserId,
-      name: displayName,
-      full_name: displayName,
+      name: existingStaff?.name ?? displayName,
+      full_name: existingStaff?.full_name ?? displayName,
       email,
       status: "convite_enviado" as const,
       invite_sent_at: sentAt.toISOString(),
