@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke, mockAccessAccounts, mockUserMetadata } = vi.hoisted(() => ({
+const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffUpdate, mockFunctionInvoke, mockAccessAccounts, mockUserMetadata, mockAvailableStaff } = vi.hoisted(() => ({
   mockProfile: { role: "administrador_principal", status: "ativo" },
   mockUserMetadata: {} as Record<string, string>,
+  mockAvailableStaff: [] as Array<{ id: string; name: string; full_name: string; email: string; roles: string[] }>,
   mockAccessAccounts: [] as Array<{ id: string; display_name: string; email: string; role: string; status: string; staff_member_id?: string | null; created_at: string; last_sign_in_at: string }>,
   mockStaffOrder: vi.fn().mockResolvedValue({ data: [], error: null }),
   mockStaffInsert: vi.fn().mockResolvedValue({ data: { id: "staff-123" }, error: null }),
@@ -13,6 +14,9 @@ const { mockProfile, mockStaffOrder, mockStaffInsert, mockRoleInsert, mockStaffU
     if (name === "accept-staff-invite") mockProfile.status = "ativo";
     if (name === "manage-platform-access" && options?.body?.action === "list") {
       return { data: { accounts: mockAccessAccounts }, error: null };
+    }
+    if (name === "manage-platform-access" && options?.body?.action === "list_unlinked_staff") {
+      return { data: { staff: mockAvailableStaff }, error: null };
     }
     return { data: { message: "Operação concluída." }, error: null };
   }),
@@ -83,6 +87,7 @@ afterEach(() => {
   mockProfile.role = "administrador_principal";
   mockProfile.status = "ativo";
   mockAccessAccounts.length = 0;
+  mockAvailableStaff.length = 0;
   for (const key of Object.keys(mockUserMetadata)) delete mockUserMetadata[key];
   mockStaffOrder.mockResolvedValue({ data: [], error: null });
   mockStaffInsert.mockResolvedValue({ data: { id: "staff-123" }, error: null });
@@ -92,6 +97,9 @@ afterEach(() => {
     if (name === "accept-staff-invite") mockProfile.status = "ativo";
     if (name === "manage-platform-access" && options?.body?.action === "list") {
       return { data: { accounts: mockAccessAccounts }, error: null };
+    }
+    if (name === "manage-platform-access" && options?.body?.action === "list_unlinked_staff") {
+      return { data: { staff: mockAvailableStaff }, error: null };
     }
     return { data: { message: "Operação concluída." }, error: null };
   });
@@ -209,9 +217,32 @@ describe("plataforma de futsal", () => {
     fireEvent.change(within(dialog).getByRole("textbox", { name: /Email de acesso/ }), { target: { value: "nova.treinadora@exemplo.pt" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Criar conta e enviar convite" }));
     await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", {
-      body: { action: "create_trainer_principal", displayName: "Nova Treinadora Principal", email: "nova.treinadora@exemplo.pt" },
+      body: { action: "create_trainer_principal", displayName: "Nova Treinadora Principal", email: "nova.treinadora@exemplo.pt", staffMemberId: null },
     }));
     await waitForDialogToClose();
+  });
+
+  it("permite associar uma ficha Staff existente ao criar um Treinador Principal", async () => {
+    mockAvailableStaff.push({
+      id: "staff-record-42",
+      name: "Ana Silva",
+      full_name: "Ana Silva",
+      email: "ana@exemplo.pt",
+      roles: ["Treinador Adjunto"],
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Centro de controlo" });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Gestão de acessos/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Criar Treinador Principal/ }));
+    const dialog = screen.getByRole("dialog");
+    const staffSelect = await within(dialog).findByLabelText("Ficha Staff");
+    fireEvent.change(staffSelect, { target: { value: "staff-record-42" } });
+    expect(within(dialog).getByLabelText("Nome apresentado *")).toHaveValue("Ana Silva");
+    expect(within(dialog).getByRole("textbox", { name: /Email de acesso/ })).toHaveValue("ana@exemplo.pt");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Criar conta e enviar convite" }));
+    await waitFor(() => expect(mockFunctionInvoke).toHaveBeenCalledWith("manage-platform-access", {
+      body: { action: "create_trainer_principal", displayName: "Ana Silva", email: "ana@exemplo.pt", staffMemberId: "staff-record-42" },
+    }));
   });
 
   it("permite reenviar um convite pendente de Treinador Principal", async () => {
