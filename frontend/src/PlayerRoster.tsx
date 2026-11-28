@@ -83,7 +83,11 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
     if (gc.error) throw gc.error;
     if (cr.error) throw cr.error;
     return {
-      guardianContacts: { ...emptyGuardianContacts(), ...(gc.data ?? {}) } as GuardianContacts,
+      guardianContacts: {
+        father_name: gc.data?.father_name ?? "", father_phone: gc.data?.father_phone ?? "",
+        mother_name: gc.data?.mother_name ?? "", mother_phone: gc.data?.mother_phone ?? "",
+        guardian_email: gc.data?.guardian_email ?? "",
+      },
       career: (cr.data ?? []).map((x) => ({...x,team_name:x.team_name ?? "",season_label:x.season_label ?? "",start_date:x.start_date ?? "",end_date:x.end_date ?? "",games_played:x.games_played?.toString() ?? "",goals:x.goals?.toString() ?? "",assists:x.assists?.toString() ?? ""})) as CareerEntry[],
     };
   };
@@ -128,6 +132,8 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
     if (height !== null && (!Number.isFinite(height) || height < 50 || height > 250)) { setFormError("Confirma a altura em centímetros (50–250)."); return; }
     if ((weight === null) !== (height === null)) { setFormError("Para calcular o IMC, preenche o peso e a altura."); return; }
     if (form.positions.length > 2 || (form.positions[0] === "Universal" && form.positions.length > 1)) { setFormError("Define uma posição principal e, opcionalmente, uma posição secundária. Universal não permite posição secundária."); return; }
+    const invalidCareerStat = careerHistory.some(h => [h.games_played,h.goals,h.assists].some(value => value !== "" && (!Number.isInteger(Number(value)) || Number(value) < 0)));
+    if (invalidCareerStat) { setFormError("Os jogos, golos e assistências do histórico de carreira têm de ser números inteiros iguais ou superiores a zero."); return; }
     setSaving(true);
     try {
       const payload = {
