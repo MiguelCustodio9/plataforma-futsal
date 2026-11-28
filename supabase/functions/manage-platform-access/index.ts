@@ -83,12 +83,12 @@ Deno.serve(async (request) => {
 
     // A ficha é escolhida explicitamente na Gestão de acessos.
     // Sem seleção, só criamos uma nova se não existir já uma ficha com o mesmo email.
-    const staffMemberId = isUuid(payload.staffMemberId) ? payload.staffMemberId : null;
+    const selectedStaffId = isUuid(payload.staffMemberId) ? payload.staffMemberId : null;
     let existingStaff: { id: string; profile_id: string | null; account_deleted_at: string | null; name: string; full_name: string; email: string } | null = null;
-    if (staffMemberId) {
+    if (selectedStaffId) {
       const { data: selectedStaff, error: selectedStaffError } = await admin.from("staff_members")
         .select("id, profile_id, account_deleted_at, name, full_name, email")
-        .eq("id", staffMemberId)
+        .eq("id", selectedStaffId)
         .maybeSingle();
       if (selectedStaffError || !selectedStaff) {
         return respond(404, { error: "A ficha Staff selecionada já não está disponível. Atualiza a lista e tenta novamente." });
