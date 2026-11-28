@@ -8,11 +8,11 @@ type Player = {
   nationality: string; second_nationality: string | null; dominant_foot: string;
   preferred_number: number | null; practice_years: number | null;
   previous_club: string | null; other_sports: string | null;
-  abdominal_perimeter: number | null; photo_path: string | null; status: PlayerStatus;
-  contact_phone: string | null; contact_email: string | null;
+  abdominal_perimeter: number | null; weight_kg: number | null; height_cm: number | null; bmi: number | null;
+  photo_path: string | null; status: PlayerStatus; contact_phone: string | null; contact_email: string | null;
 };
-type Guardian = { id?: string; full_name: string; relationship: string; phone: string; email: string };
-type CareerEntry = { id?: string; club_name: string; team_name: string; season_label: string; start_date: string; end_date: string };
+type GuardianContacts = { father_name: string; father_phone: string; mother_name: string; mother_phone: string; guardian_email: string };
+type CareerEntry = { id?: string; club_name: string; team_name: string; season_label: string; start_date: string; end_date: string; games_played: string; goals: string; assists: string };
 const positions = ["GR", "Fixo", "Ala", "Pivot", "Universal"];
 const statusLabels: Record<PlayerStatus, string> = {
   ativa: "Ativa", lesionada: "Lesionada", inativa: "Inativa", arquivada: "Arquivada",
@@ -21,11 +21,11 @@ const emptyForm = {
   name: "", full_name: "", sex: "Feminino", positions: [] as string[], birth_date: "",
   birth_country: "", birth_locality: "", nationality: "Portuguesa", second_nationality: "",
   dominant_foot: "Direito", preferred_number: "", practice_years: "", previous_club: "",
-  other_sports: "", abdominal_perimeter: "", status: "ativa" as PlayerStatus,
+  other_sports: "", abdominal_perimeter: "", weight_kg: "", height_cm: "", status: "ativa" as PlayerStatus,
   contact_phone: "", contact_email: "",
 };
-const emptyGuardian = (): Guardian => ({ full_name: "", relationship: "", phone: "", email: "" });
-const emptyCareer = (): CareerEntry => ({ club_name: "", team_name: "", season_label: "", start_date: "", end_date: "" });
+const emptyGuardianContacts = (): GuardianContacts => ({ father_name: "", father_phone: "", mother_name: "", mother_phone: "", guardian_email: "" });
+const emptyCareer = (): CareerEntry => ({ club_name: "", team_name: "", season_label: "", start_date: "", end_date: "", games_played: "", goals: "", assists: "" });
 
 function ageFromDate(date: string) {
   if (!date) return "—";
@@ -48,16 +48,16 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Player | null>(null);
-  const [guardians, setGuardians] = useState<Guardian[]>([]);
+  const [guardianContacts, setGuardianContacts] = useState<GuardianContacts>(emptyGuardianContacts());
   const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
-  const [detailGuardians, setDetailGuardians] = useState<Guardian[]>([]);
+  const [detailGuardianContacts, setDetailGuardianContacts] = useState<GuardianContacts>(emptyGuardianContacts());
   const [detailCareer, setDetailCareer] = useState<CareerEntry[]>([]);
 
   const loadPlayers = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const { data, error: loadError } = await supabase.from("players")
-        .select("id,name,full_name,sex,positions,birth_date,birth_country,birth_locality,nationality,second_nationality,dominant_foot,preferred_number,practice_years,previous_club,other_sports,abdominal_perimeter,photo_path,status,contact_phone,contact_email")
+        .select("id,name,full_name,sex,positions,birth_date,birth_country,birth_locality,nationality,second_nationality,dominant_foot,preferred_number,practice_years,previous_club,other_sports,abdominal_perimeter,weight_kg,height_cm,bmi,photo_path,status,contact_phone,contact_email")
         .order("name", { ascending: true });
       if (loadError) throw loadError;
       setPlayers((data ?? []) as Player[]);
@@ -76,33 +76,33 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
   ), [players, query, statusFilter]);
 
   const loadRelated = async (playerId: string) => {
-    const [gr, cr] = await Promise.all([
-      supabase.from("player_guardians").select("id,full_name,relationship,phone,email").eq("player_id", playerId).order("created_at"),
-      supabase.from("player_career_history").select("id,club_name,team_name,season_label,start_date,end_date").eq("player_id", playerId).order("start_date", { ascending: true }),
+    const [gc, cr] = await Promise.all([
+      supabase.from("player_guardian_contacts").select("father_name,father_phone,mother_name,mother_phone,guardian_email").eq("player_id", playerId).maybeSingle(),
+      supabase.from("player_career_history").select("id,club_name,team_name,season_label,start_date,end_date,games_played,goals,assists").eq("player_id", playerId).order("start_date", { ascending: true }),
     ]);
-    if (gr.error) throw gr.error;
+    if (gc.error) throw gc.error;
     if (cr.error) throw cr.error;
     return {
-      guardians: (gr.data ?? []).map((x) => ({...x,phone:x.phone ?? "",email:x.email ?? ""})) as Guardian[],
-      career: (cr.data ?? []).map((x) => ({...x,team_name:x.team_name ?? "",season_label:x.season_label ?? "",start_date:x.start_date ?? "",end_date:x.end_date ?? ""})) as CareerEntry[],
+      guardianContacts: { ...emptyGuardianContacts(), ...(gc.data ?? {}) } as GuardianContacts,
+      career: (cr.data ?? []).map((x) => ({...x,team_name:x.team_name ?? "",season_label:x.season_label ?? "",start_date:x.start_date ?? "",end_date:x.end_date ?? "",games_played:x.games_played?.toString() ?? "",goals:x.goals?.toString() ?? "",assists:x.assists?.toString() ?? ""})) as CareerEntry[],
     };
   };
   const openNew = () => {
-    setEditingId(null); setForm(emptyForm); setGuardians([emptyGuardian()]); setCareerHistory([]);
+    setEditingId(null); setForm(emptyForm); setGuardianContacts(emptyGuardianContacts()); setCareerHistory([]);
     setFormError(""); setShowForm(true);
   };
   const openEdit = async (player: Player) => {
     setEditingId(player.id);
     try {
       const related = await loadRelated(player.id);
-      setGuardians(related.guardians.length ? related.guardians : [emptyGuardian()]);
+      setGuardianContacts(related.guardianContacts);
       setCareerHistory(related.career);
       setForm({...emptyForm,name:player.name,full_name:player.full_name,sex:player.sex,positions:player.positions ?? [],
         birth_date:player.birth_date,birth_country:player.birth_country ?? "",birth_locality:player.birth_locality ?? "",
         nationality:player.nationality,second_nationality:player.second_nationality ?? "",dominant_foot:player.dominant_foot,
         preferred_number:player.preferred_number?.toString() ?? "",practice_years:player.practice_years?.toString() ?? "",
         previous_club:player.previous_club ?? "",other_sports:player.other_sports ?? "",
-        abdominal_perimeter:player.abdominal_perimeter?.toString() ?? "",status:player.status,
+        abdominal_perimeter:player.abdominal_perimeter?.toString() ?? "",weight_kg:player.weight_kg?.toString() ?? "",height_cm:player.height_cm?.toString() ?? "",status:player.status,
         contact_phone:player.contact_phone ?? "",contact_email:player.contact_email ?? ""});
       setFormError(""); setShowForm(true);
     } catch (e) {
@@ -110,11 +110,6 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
       setError("Não foi possível carregar os contactos e o histórico da jogadora.");
     }
   };
-
-  const togglePosition = (position: string) => setForm((current) => {
-    const next = current.positions.includes(position) ? current.positions.filter((item) => item !== position) : [...current.positions, position];
-    return { ...current, positions: position === "Universal" ? (next.includes("Universal") ? ["Universal"] : []) : next.filter((item) => item !== "Universal") };
-  });
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setFormError("");
@@ -124,9 +119,15 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
     const number = form.preferred_number ? Number(form.preferred_number) : null;
     const years = form.practice_years ? Number(form.practice_years) : null;
     const perimeter = form.abdominal_perimeter ? Number(form.abdominal_perimeter.replace(",", ".")) : null;
+    const weight = form.weight_kg ? Number(form.weight_kg.replace(",", ".")) : null;
+    const height = form.height_cm ? Number(form.height_cm.replace(",", ".")) : null;
     if (number !== null && (!Number.isInteger(number) || number < 1 || number > 99)) { setFormError("O número preferido deve estar entre 1 e 99."); return; }
     if (years !== null && (!Number.isInteger(years) || years < 0 || years > 80)) { setFormError("Confirma os anos de prática."); return; }
     if (perimeter !== null && (!Number.isFinite(perimeter) || perimeter <= 0 || perimeter > 300)) { setFormError("Confirma o perímetro abdominal em centímetros."); return; }
+    if (weight !== null && (!Number.isFinite(weight) || weight < 1 || weight > 300)) { setFormError("Confirma o peso em quilogramas (1–300)."); return; }
+    if (height !== null && (!Number.isFinite(height) || height < 50 || height > 250)) { setFormError("Confirma a altura em centímetros (50–250)."); return; }
+    if ((weight === null) !== (height === null)) { setFormError("Para calcular o IMC, preenche o peso e a altura."); return; }
+    if (form.positions.length > 2 || (form.positions[0] === "Universal" && form.positions.length > 1)) { setFormError("Define uma posição principal e, opcionalmente, uma posição secundária. Universal não permite posição secundária."); return; }
     setSaving(true);
     try {
       const payload = {
@@ -135,7 +136,7 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
         birth_locality: form.birth_locality.trim() || null, nationality: form.nationality.trim(),
         second_nationality: form.second_nationality.trim() || null, dominant_foot: form.dominant_foot,
         preferred_number: number, practice_years: years, previous_club: form.previous_club.trim() || null,
-        other_sports: form.other_sports.trim() || null, abdominal_perimeter: perimeter, status: form.status,
+        other_sports: form.other_sports.trim() || null, abdominal_perimeter: perimeter, weight_kg: weight, height_cm: height, status: form.status,
         contact_phone: form.contact_phone.trim() || null, contact_email: form.contact_email.trim() || null,
       };
       let playerId = editingId;
@@ -148,22 +149,31 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
         playerId = result.data.id;
       }
       if (!playerId) throw new Error("ID da jogadora indisponível.");
-      const guardianRows = guardians.filter(g=>g.full_name.trim() && g.relationship.trim()).map(g=>({
-        ...(g.id ? {id:g.id}:{}),player_id:playerId,full_name:g.full_name.trim(),relationship:g.relationship.trim(),
-        phone:g.phone.trim() || null,email:g.email.trim() || null
-      }));
+      const guardianValues = { player_id: playerId, father_name: guardianContacts.father_name.trim() || null,
+        father_phone: guardianContacts.father_phone.trim() || null, mother_name: guardianContacts.mother_name.trim() || null,
+        mother_phone: guardianContacts.mother_phone.trim() || null, guardian_email: guardianContacts.guardian_email.trim() || null };
+      const hasGuardianData = Object.entries(guardianValues).some(([key,value]) => key !== "player_id" && value !== null);
+      if (hasGuardianData) {
+        const savedGuardian = await supabase.from("player_guardian_contacts").upsert(guardianValues, { onConflict: "player_id" });
+        if (savedGuardian.error) throw savedGuardian.error;
+      } else {
+        const removedGuardian = await supabase.from("player_guardian_contacts").delete().eq("player_id", playerId);
+        if (removedGuardian.error) throw removedGuardian.error;
+      }
       const careerRows = careerHistory.filter(h=>h.club_name.trim()).map(h=>({
         ...(h.id ? {id:h.id}:{}),player_id:playerId,club_name:h.club_name.trim(),team_name:h.team_name.trim() || null,
-        season_label:h.season_label.trim() || null,start_date:h.start_date || null,end_date:h.end_date || null
+        season_label:h.season_label.trim() || null,start_date:h.start_date || null,end_date:h.end_date || null,
+        games_played:h.games_played === "" ? null : Number(h.games_played), goals:h.goals === "" ? null : Number(h.goals),
+        assists:h.assists === "" ? null : Number(h.assists),
       }));
-      const syncRows = async (table:"player_guardians"|"player_career_history",rows:Array<Record<string,unknown>>) => {
+      const syncRows = async (table:"player_career_history",rows:Array<Record<string,unknown>>) => {
         const ids=rows.flatMap(row=>typeof row.id==="string" ? [row.id] : []);
         let del=supabase.from(table).delete().eq("player_id",playerId);
         if(ids.length) del=del.not("id","in","("+ids.join(",")+")");
         const deleted=await del;if(deleted.error)throw deleted.error;
         if(rows.length){const saved=await supabase.from(table).upsert(rows);if(saved.error)throw saved.error;}
       };
-      await Promise.all([syncRows("player_guardians",guardianRows),syncRows("player_career_history",careerRows)]);
+      await syncRows("player_career_history",careerRows);
       await loadPlayers(); setShowForm(false); setSelected(null);
     } catch (saveError) {
       console.error("Erro ao guardar jogadora:", saveError);
@@ -173,7 +183,7 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
 
   const openDetails = async (player: Player) => {
     setSelected(player);
-    try { const related=await loadRelated(player.id);setDetailGuardians(related.guardians);setDetailCareer(related.career); }
+    try { const related=await loadRelated(player.id);setDetailGuardianContacts(related.guardianContacts);setDetailCareer(related.career); }
     catch(e){console.error("Erro ao carregar detalhe:",e);setError("Não foi possível carregar todos os dados da ficha.");}
   };
 
@@ -234,18 +244,25 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
             <label><span>Anos de prática</span><input type="number" min="0" max="80" value={form.practice_years} onChange={e => setForm({...form,practice_years:e.target.value})}/></label>
             <label><span>Clube anterior</span><input value={form.previous_club} onChange={e => setForm({...form,previous_club:e.target.value})}/><small>A associação à lista central de clubes será ligada no módulo Clubes.</small></label>
             <label><span>Outros desportos/atividades</span><input value={form.other_sports} onChange={e => setForm({...form,other_sports:e.target.value})}/></label>
-          </div><fieldset className="role-picker"><legend>Posições *</legend><div>{positions.map(position => <label key={position}><input type="checkbox" checked={form.positions.includes(position)} onChange={() => togglePosition(position)}/>{position}</label>)}</div><small>Universal é uma posição exclusiva e não pode ser combinada com outras.</small></fieldset></div>
+          </div><div className="form-grid position-selects">
+            <label><span>Posição principal *</span><select required value={form.positions[0] ?? ""} onChange={e=>setForm(current=>({ ...current, positions: e.target.value ? [e.target.value, ...(current.positions[1] && current.positions[1] !== e.target.value && e.target.value !== "Universal" ? [current.positions[1]] : [])] : [] }))}><option value="">Selecionar posição</option>{positions.map(position=><option key={position} value={position}>{position}</option>)}</select></label>
+            <label><span>Posição secundária</span><select value={form.positions[0] === "Universal" ? "" : (form.positions[1] ?? "")} disabled={!form.positions[0] || form.positions[0] === "Universal"} onChange={e=>setForm(current=>({ ...current, positions: [current.positions[0], ...(e.target.value ? [e.target.value] : [])] }))}><option value="">Sem posição secundária</option>{positions.filter(position=>position !== "Universal" && position !== form.positions[0]).map(position=><option key={position} value={position}>{position}</option>)}</select></label>
+          </div><small>Universal é uma posição principal exclusiva e não permite posição secundária.</small></div>
           <div className="roster-form-section"><h3>Dados antropométricos</h3><div className="form-grid">
+            <label><span>Peso (kg)</span><input type="number" min="1" max="300" step="0.1" value={form.weight_kg} onChange={e=>setForm({...form,weight_kg:e.target.value})}/></label>
+            <label><span>Altura (cm)</span><input type="number" min="50" max="250" step="0.1" value={form.height_cm} onChange={e=>setForm({...form,height_cm:e.target.value})}/></label>
+            <label><span>IMC</span><input value={form.weight_kg && form.height_cm && Number(form.height_cm)>0 ? (Number(form.weight_kg.replace(",",".")) / Math.pow(Number(form.height_cm.replace(",","."))/100,2)).toFixed(2) : "—"} readOnly aria-label="IMC calculado"/></label>
             <label><span>Perímetro abdominal (cm)</span><input type="number" min="0.1" max="300" step="0.1" value={form.abdominal_perimeter} onChange={e => setForm({...form,abdominal_perimeter:e.target.value})}/></label>
-          </div><small>Este dado pertence aos parâmetros antropométricos/físicos, não às características desportivas.</small></div>
-          <div className="roster-form-section"><div className="roster-section-heading"><h3>Encarregados de Educação</h3><button type="button" className="secondary-button" onClick={()=>setGuardians(v=>[...v,emptyGuardian()])}>+ Adicionar EE</button></div>
-            <p className="field-note">Dados de contacto dos Encarregados de Educação. Não são criadas contas de acesso à plataforma.</p>
-            {guardians.map((g,i)=><div className="roster-related-card" key={g.id ?? ("guardian-"+i)}><div className="form-grid">
-              <label><span>Nome completo *</span><input value={g.full_name} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,full_name:e.target.value}:x))}/></label>
-              <label><span>Parentesco *</span><input value={g.relationship} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,relationship:e.target.value}:x))} placeholder="Mãe, pai, tutor…"/></label>
-              <label><span>Telemóvel</span><input type="tel" value={g.phone} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,phone:e.target.value}:x))}/></label>
-              <label><span>Email</span><input type="email" value={g.email} onChange={e=>setGuardians(v=>v.map((x,j)=>j===i?{...x,email:e.target.value}:x))}/></label>
-            </div><button type="button" className="text-danger-button" onClick={()=>setGuardians(v=>v.filter((_,j)=>j!==i))}>Remover EE</button></div>)}
+          </div><small>O IMC é calculado automaticamente a partir do peso e da altura. Estes dados ficam na secção antropométrica/física.</small></div>
+          <div className="roster-form-section"><h3>Encarregados de Educação</h3>
+            <p className="field-note">Contactos do pai, da mãe e endereço de email do Encarregado de Educação. Não são criadas contas de acesso à plataforma.</p>
+            <div className="form-grid">
+              <label><span>Nome do pai</span><input value={guardianContacts.father_name} onChange={e=>setGuardianContacts(v=>({...v,father_name:e.target.value}))} maxLength={200}/></label>
+              <label><span>Contacto do pai</span><input type="tel" value={guardianContacts.father_phone} onChange={e=>setGuardianContacts(v=>({...v,father_phone:e.target.value}))} maxLength={40}/></label>
+              <label><span>Nome da mãe</span><input value={guardianContacts.mother_name} onChange={e=>setGuardianContacts(v=>({...v,mother_name:e.target.value}))} maxLength={200}/></label>
+              <label><span>Contacto da mãe</span><input type="tel" value={guardianContacts.mother_phone} onChange={e=>setGuardianContacts(v=>({...v,mother_phone:e.target.value}))} maxLength={40}/></label>
+              <label><span>Email do EE</span><input type="email" value={guardianContacts.guardian_email} onChange={e=>setGuardianContacts(v=>({...v,guardian_email:e.target.value}))} maxLength={254}/></label>
+            </div>
           </div>
           <div className="roster-form-section"><div className="roster-section-heading"><h3>Histórico de carreira</h3><button type="button" className="secondary-button" onClick={()=>setCareerHistory(v=>[...v,emptyCareer()])}>+ Adicionar percurso</button></div>
             <p className="field-note">Clubes, equipas e épocas anteriores. A ligação à lista central de clubes será integrada no módulo Clubes.</p>
@@ -255,6 +272,9 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
               <label><span>Época</span><input value={h.season_label} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,season_label:e.target.value}:x))} placeholder="2024/2025"/></label>
               <label><span>Data de início</span><input type="date" value={h.start_date} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,start_date:e.target.value}:x))}/></label>
               <label><span>Data de fim</span><input type="date" value={h.end_date} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,end_date:e.target.value}:x))}/></label>
+              <label><span>Jogos realizados</span><input type="number" min="0" step="1" value={h.games_played} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,games_played:e.target.value}:x))}/></label>
+              <label><span>Golos</span><input type="number" min="0" step="1" value={h.goals} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,goals:e.target.value}:x))}/></label>
+              <label><span>Assistências</span><input type="number" min="0" step="1" value={h.assists} onChange={e=>setCareerHistory(v=>v.map((x,j)=>j===i?{...x,assists:e.target.value}:x))}/></label>
             </div><button type="button" className="text-danger-button" onClick={()=>setCareerHistory(v=>v.filter((_,j)=>j!==i))}>Remover registo</button></div>)}
           </div>
           <div className="roster-form-section"><h3>Estado desportivo</h3><label className="roster-status-field"><span>Estado</span><select value={form.status} onChange={e => setForm({...form,status:e.target.value as PlayerStatus})}>{Object.entries(statusLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></div>
@@ -272,14 +292,23 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
           <div><span>Naturalidade</span><strong>{[selected.birth_locality,selected.birth_country].filter(Boolean).join(", ") || "—"}</strong></div>
           <div><span>Nacionalidade</span><strong>{[selected.nationality,selected.second_nationality].filter(Boolean).join(" / ")}</strong></div>
           <div><span>Contactos da atleta</span><strong>{[selected.contact_phone,selected.contact_email].filter(Boolean).join(" · ") || "—"}</strong></div>
-          <div><span>Posições</span><strong>{selected.positions.join(" / ")}</strong></div><div><span>Pé dominante</span><strong>{selected.dominant_foot}</strong></div>
+          <div><span>Posição principal</span><strong>{selected.positions[0] ?? "—"}</strong></div><div><span>Posição secundária</span><strong>{selected.positions[1] ?? "—"}</strong></div><div><span>Pé dominante</span><strong>{selected.dominant_foot}</strong></div>
           <div><span>Número preferido</span><strong>{selected.preferred_number ?? "—"}</strong></div><div><span>Anos de prática</span><strong>{selected.practice_years ?? "—"}</strong></div>
           <div><span>Clube anterior</span><strong>{selected.previous_club || "—"}</strong></div><div><span>Outros desportos/atividades</span><strong>{selected.other_sports || "—"}</strong></div>
           <div><span>Estado</span><strong>{statusLabels[selected.status]}</strong></div>
         </div>
-        <div className="roster-detail-related"><h3>Dados antropométricos</h3><div><strong>Perímetro abdominal</strong><span>{selected.abdominal_perimeter == null ? "—" : `${selected.abdominal_perimeter} cm`}</span></div></div>
-        <div className="roster-detail-related"><h3>Encarregados de Educação</h3>{detailGuardians.length ? detailGuardians.map(g=><div key={g.id}><strong>{g.full_name}</strong><span>{g.relationship} · {[g.phone,g.email].filter(Boolean).join(" · ")}</span></div>) : <p>Sem Encarregados de Educação registados.</p>}</div>
-        <div className="roster-detail-related"><h3>Histórico de carreira</h3>{detailCareer.length ? detailCareer.map(h=><div key={h.id}><strong>{h.club_name}</strong><span>{[h.team_name,h.season_label,[h.start_date,h.end_date].filter(Boolean).join(" – ")].filter(Boolean).join(" · ")}</span></div>) : <p>Sem histórico de carreira registado.</p>}</div>
+        <div className="roster-detail-related"><h3>Dados antropométricos</h3>
+          <div><strong>Peso</strong><span>{selected.weight_kg == null ? "—" : `${selected.weight_kg} kg`}</span></div>
+          <div><strong>Altura</strong><span>{selected.height_cm == null ? "—" : `${selected.height_cm} cm`}</span></div>
+          <div><strong>IMC</strong><span>{selected.bmi == null ? "—" : selected.bmi}</span></div>
+          <div><strong>Perímetro abdominal</strong><span>{selected.abdominal_perimeter == null ? "—" : `${selected.abdominal_perimeter} cm`}</span></div>
+        </div>
+        <div className="roster-detail-related"><h3>Encarregados de Educação</h3>
+          <div><strong>Pai</strong><span>{[detailGuardianContacts.father_name,detailGuardianContacts.father_phone].filter(Boolean).join(" · ") || "—"}</span></div>
+          <div><strong>Mãe</strong><span>{[detailGuardianContacts.mother_name,detailGuardianContacts.mother_phone].filter(Boolean).join(" · ") || "—"}</span></div>
+          <div><strong>Email do EE</strong><span>{detailGuardianContacts.guardian_email || "—"}</span></div>
+        </div>
+        <div className="roster-detail-related"><h3>Histórico de carreira</h3>{detailCareer.length ? detailCareer.map(h=><div key={h.id}><strong>{h.club_name}</strong><span>{[h.team_name,h.season_label,[h.start_date,h.end_date].filter(Boolean).join(" – ")].filter(Boolean).join(" · ")}</span><span>Jogos: {h.games_played || "—"} · Golos: {h.goals || "—"} · Assistências: {h.assists || "—"}</span></div>) : <p>Sem histórico de carreira registado.</p>}</div>
         <div className="modal-actions">{canManage && <button className="danger-button" onClick={() => void archive(selected)}>Arquivar ficha</button>}<button className="secondary-button" onClick={() => setSelected(null)}>Fechar</button></div>
       </section>
     </div>}
