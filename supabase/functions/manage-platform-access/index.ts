@@ -148,14 +148,34 @@ Deno.serve(async (request) => {
       return respond(500, { error: "Não foi possível associar o convite à ficha Staff. O convite foi invalidado; a ficha anterior foi preservada." });
     }
 
-    const { error: roleError } = await admin.from("staff_member_roles").upsert({
-      staff_member_id: staffMemberId,
-      role_name: "Treinador Principal",
-    }, { onConflict: "staff_member_id,role_name", ignoreDuplicates: true });
-    if (roleError) {
+    // Não usar upsert: bases de dados antigas podem não ter a constraint
+    // de conflito no esquema PostgREST, apesar da ficha e da função já existirem.
+    const { data: existingRole, error: roleReadError } = await admin.from("staff_member_roles")
+      .select("id")
+      .eq("staff_member_id", staffMemberId)
+      .eq("role_name", "Treinador Principal")
+      .maybeSingle();
+    if (roleReadError) {
       await rollbackInvite(true);
-      console.error("Erro ao atribuir função de Treinador Principal:", roleError.message);
-      return respond(500, { error: "Não foi possível atribuir a função. O convite foi invalidado e a ficha foi preservada." });
+      console.error("Erro ao consultar função de Treinador Principal:", roleReadError);
+      return respond(500, {
+        error: "Não foi possível verificar a função de Treinador Principal.",
+        diagnostic: [roleReadError.code, roleReadError.message, roleReadError.details, roleReadError.hint].filter(Boolean).join(" — "),
+      });
+    }
+    if (!existingRole) {
+      const { error: roleInsertError } = await admin.from("staff_member_roles").insert({
+        staff_member_id: staffMemberId,
+        role_name: "Treinador Principal",
+      });
+      if (roleInsertError && roleInsertError.code !== "23505") {
+        await rollbackInvite(true);
+        console.error("Erro ao atribuir função de Treinador Principal:", roleInsertError);
+        return respond(500, {
+          error: "Não foi possível atribuir a função de Treinador Principal.",
+          diagnostic: [roleInsertError.code, roleInsertError.message, roleInsertError.details, roleInsertError.hint].filter(Boolean).join(" — "),
+        });
+      }
     }
 
     const { error: auditError } = await admin.from("platform_access_audit").insert({
