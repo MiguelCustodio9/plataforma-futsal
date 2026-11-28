@@ -115,6 +115,8 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
   const [trainerName, setTrainerName] = useState("");
   const [trainerEmail, setTrainerEmail] = useState("");
   const [trainerFormError, setTrainerFormError] = useState("");
+  const [availableStaff, setAvailableStaff] = useState<Array<{ id: string; name: string; full_name: string; email: string; roles: string[] }>>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [inviteTarget, setInviteTarget] = useState<PlatformAccount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlatformAccount | null>(null);
 
@@ -137,6 +139,30 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
   }, []);
 
   useEffect(() => { void loadAccounts(); }, [loadAccounts]);
+
+  useEffect(() => {
+    if (!showTrainerForm) return;
+    let cancelled = false;
+    const loadAvailableStaff = async () => {
+      setBusy(true);
+      setTrainerFormError("");
+      try {
+        const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
+          body: { action: "list_unlinked_staff" },
+        });
+        if (invokeError) throw invokeError;
+        if (!data || !Array.isArray(data.staff)) throw new Error("Resposta inválida ao carregar fichas Staff.");
+        if (!cancelled) setAvailableStaff(data.staff);
+      } catch (loadError) {
+        console.error("Erro ao carregar fichas Staff disponíveis:", loadError);
+        if (!cancelled) setTrainerFormError("Não foi possível carregar as fichas Staff existentes. Podes tentar novamente fechando e reabrindo esta janela.");
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    };
+    void loadAvailableStaff();
+    return () => { cancelled = true; };
+  }, [showTrainerForm]);
 
   const filteredAccounts = useMemo(() => accounts.filter((account) => {
     const search = [account.display_name, account.email, roleLabels[account.role]].join(" ").toLocaleLowerCase("pt-PT");
@@ -200,7 +226,7 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
     setNotice("");
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("manage-platform-access", {
-        body: { action: "create_trainer_principal", displayName: name, email },
+        body: { action: "create_trainer_principal", displayName: name, email, staffMemberId: selectedStaffId || null },
       });
       if (invokeError) {
         if (invokeError.context instanceof Response) {
@@ -216,6 +242,7 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
       setNotice(typeof data?.message === "string" ? data.message : "Convite para Treinador Principal enviado.");
       setTrainerName("");
       setTrainerEmail("");
+      setSelectedStaffId("");
       setTrainerFormError("");
       setShowTrainerForm(false);
       await loadAccounts();
@@ -316,14 +343,32 @@ function AccessManagement({ currentProfileId }: { currentProfileId?: string }) {
       {showTrainerForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) { setShowTrainerForm(false); setTrainerFormError(""); } }}>
         <section className="staff-modal trainer-create-modal" role="dialog" aria-modal="true" aria-labelledby="create-trainer-title" aria-describedby="create-trainer-description">
           <div className="modal-heading"><div><span className="eyebrow">ADMINISTRAÇÃO PRINCIPAL · NOVA CONTA</span><h2 id="create-trainer-title">Criar Treinador Principal</h2></div><button className="icon-button" onClick={() => { setShowTrainerForm(false); setTrainerFormError(""); }} aria-label="Fechar" disabled={busy}>×</button></div>
-          <div className="trainer-form-intro"><span className="trainer-form-icon" aria-hidden="true">✉</span><p id="create-trainer-description">Preenche os dados da pessoa que vai assumir a gestão desportiva da plataforma. A conta e a ficha Staff serão criadas em conjunto.</p></div>
+          <div className="trainer-form-intro"><span className="trainer-form-icon" aria-hidden="true">✉</span><p id="create-trainer-description">Preenche os dados da pessoa que vai assumir a gestão desportiva da plataforma. A conta será associada à ficha escolhida ou a uma ficha nova.</p></div>
           <form className="trainer-create-form" onSubmit={(event) => void createTrainerPrincipal(event)} noValidate>
-            <div className="trainer-form-section"><span className="trainer-form-step">01</span><div><h3>Dados de acesso</h3><p>Estes dados identificam a pessoa e para onde será enviado o convite.</p></div></div>
+            <div className="trainer-form-section"><span className="trainer-form-step">01</span><div><h3>Ficha Staff</h3><p>Escolhe uma ficha existente ou cria uma nova se a pessoa ainda não estiver registada.</p></div></div>
+            <label htmlFor="trainer-staff-record"><span className="trainer-field-label">Ficha Staff</span><select id="trainer-staff-record" value={selectedStaffId} onChange={(event) => {
+              const nextId = event.target.value;
+              setSelectedStaffId(nextId);
+              const selected = availableStaff.find((member) => member.id === nextId);
+              if (selected) {
+                setTrainerName(selected.full_name || selected.name);
+                setTrainerEmail(selected.email);
+              } else {
+                setTrainerName("");
+                setTrainerEmail("");
+              }
+              setTrainerFormError("");
+            }} disabled={busy}>
+              <option value="">Criar uma ficha Staff nova</option>
+              {availableStaff.map((member) => <option key={member.id} value={member.id}>{member.full_name || member.name} · {member.email}{member.roles.length ? ` · ${member.roles.join(", ")}` : ""}</option>)}
+            </select>
+            <small>As fichas já associadas a uma conta não aparecem nesta lista. Ao escolher uma ficha, os dados existentes e as funções são preservados.</small></label>
+            <div className="trainer-form-section"><span className="trainer-form-step">02</span><div><h3>Dados de acesso</h3><p>Confirma o nome e o email para o convite.</p></div></div>
             <label htmlFor="trainer-display-name"><span className="trainer-field-label">Nome apresentado <span className="required-mark">*</span></span><input id="trainer-display-name" name="displayName" type="text" autoComplete="name" value={trainerName} onChange={(event) => { setTrainerName(event.target.value); setTrainerFormError(""); }} placeholder="Ex.: Ana Silva" required maxLength={120} /></label>
             <label htmlFor="trainer-invite-email"><span className="trainer-field-label">Email de acesso <span className="required-mark">*</span></span><input id="trainer-invite-email" name="email" type="email" inputMode="email" autoComplete="email" value={trainerEmail} onChange={(event) => { setTrainerEmail(event.target.value); setTrainerFormError(""); }} placeholder="nome@exemplo.pt" required maxLength={320} /><small>Utiliza um endereço a que a pessoa tenha acesso. Será enviado para aqui o convite de ativação.</small></label>
             {trainerFormError && <p className="trainer-form-error" role="alert">{trainerFormError}</p>}
-            <div className="trainer-invite-preview"><span className="trainer-preview-check" aria-hidden="true">✓</span><div><strong>O que acontece a seguir?</strong><p>É criada a conta com o perfil Treinador Principal e a respetiva ficha Staff. A pessoa recebe um email para aceitar o convite e definir a sua palavra-passe.</p></div></div>
-            <div className="modal-actions trainer-form-actions"><button type="button" className="secondary-button" onClick={() => { setShowTrainerForm(false); setTrainerFormError(""); }} disabled={busy}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy ? "A criar conta e a enviar…" : "Criar conta e enviar convite"}</button></div>
+            <div className="trainer-invite-preview"><span className="trainer-preview-check" aria-hidden="true">✓</span><div><strong>O que acontece a seguir?</strong><p>É criada a conta com o perfil Treinador Principal e a respetiva ficha Staff. A pessoa recebe um email para aceitar o convite e definir a sua palavra-passe. A ficha e o histórico Staff existentes são preservados.</p></div></div>
+            <div className="modal-actions trainer-form-actions"><button type="button" className="secondary-button" onClick={() => { setShowTrainerForm(false); setTrainerFormError(""); }} disabled={busy}>Cancelar</button><button type="submit" className="primary-button" disabled={busy}>{busy ? "A preparar convite…" : "Criar conta e enviar convite"}</button></div>
           </form>
         </section>
       </div>}
