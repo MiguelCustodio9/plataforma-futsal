@@ -50,7 +50,7 @@ Deno.serve(async (request) => {
     return respond(403, { error: "Apenas o Administrador Principal com conta ativa pode gerir os acessos globais." });
   }
 
-  let payload: { action?: unknown; targetProfileId?: unknown; status?: unknown; displayName?: unknown; email?: unknown };
+  let payload: { action?: unknown; targetProfileId?: unknown; status?: unknown; displayName?: unknown; email?: unknown; staffMemberId?: unknown };
   try { payload = await request.json(); } catch { return respond(400, { error: "Pedido inválido." }); }
 
   if (payload.action === "list_unlinked_staff") {
