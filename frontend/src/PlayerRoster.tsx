@@ -3,7 +3,7 @@ import { supabase } from "./lib/supabase";
 
 type PlayerStatus = "ativa" | "lesionada" | "inativa" | "arquivada";
 type Player = {
-  id: string; name: string; full_name: string; sex: string; positions: string[];
+  id: string; profile_id: string | null; name: string; full_name: string; sex: string; positions: string[];
   birth_date: string; birth_country: string | null; birth_locality: string | null;
   nationality: string; second_nationality: string | null; dominant_foot: string;
   preferred_number: number | null; practice_years: number | null;
@@ -52,12 +52,17 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
   const [careerHistory, setCareerHistory] = useState<CareerEntry[]>([]);
   const [detailGuardianContacts, setDetailGuardianContacts] = useState<GuardianContacts>(emptyGuardianContacts());
   const [detailCareer, setDetailCareer] = useState<CareerEntry[]>([]);
+  const [accountInfo,setAccountInfo]=useState<{email:string;status:string}|null>(null);
+  const [accountEmail,setAccountEmail]=useState("");
+  const [accountBusy,setAccountBusy]=useState(false);
+  const [accountMessage,setAccountMessage]=useState("");
+  const [accountError,setAccountError]=useState("");
 
   const loadPlayers = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const { data, error: loadError } = await supabase.from("players")
-        .select("id,name,full_name,sex,positions,birth_date,birth_country,birth_locality,nationality,second_nationality,dominant_foot,preferred_number,practice_years,previous_club,other_sports,abdominal_perimeter,weight_kg,height_cm,bmi,photo_path,status,contact_phone,contact_email")
+        .select("id,profile_id,name,full_name,sex,positions,birth_date,birth_country,birth_locality,nationality,second_nationality,dominant_foot,preferred_number,practice_years,previous_club,other_sports,abdominal_perimeter,weight_kg,height_cm,bmi,photo_path,status,contact_phone,contact_email")
         .order("name", { ascending: true });
       if (loadError) throw loadError;
       setPlayers((data ?? []) as Player[]);
@@ -91,6 +96,22 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
       career: (cr.data ?? []).map((x) => ({...x,team_name:x.team_name ?? "",season_label:x.season_label ?? "",start_date:x.start_date ?? "",end_date:x.end_date ?? "",games_played:x.games_played?.toString() ?? "",goals:x.goals?.toString() ?? "",assists:x.assists?.toString() ?? "",goals_conceded:x.goals_conceded?.toString() ?? ""})) as CareerEntry[],
     };
   };
+  const managePlayerAccount = async (action:"get"|"invite"|"set_status"|"update_email"|"delete",status?:"ativo"|"suspenso") => {
+    if(!selected)return;
+    setAccountBusy(true);setAccountError("");setAccountMessage("");
+    try{
+      const {data,error}=await supabase.functions.invoke("manage-player-account",{body:{action,playerId:selected.id,email:accountEmail,status}});
+      if(error||data?.error)throw new Error(data?.error||error?.message||"Não foi possível concluir a operação.");
+      setAccountMessage(data?.message||"");
+      if(action==="get"){setAccountInfo({email:data.email||"",status:data.status||""});setAccountEmail(data.email||"");}
+      else if(action==="invite"){setAccountInfo({email:accountEmail,status:"convite_pendente"});await loadPlayers();}
+      else if(action==="set_status"&&accountInfo)setAccountInfo({...accountInfo,status:status||accountInfo.status});
+      else if(action==="update_email"&&accountInfo)setAccountInfo({...accountInfo,email:accountEmail});
+      else if(action==="delete"){setAccountInfo(null);await loadPlayers();}
+    }catch(e){setAccountError(e instanceof Error?e.message:"Erro inesperado.");}
+    finally{setAccountBusy(false);}
+  };
+  useEffect(()=>{if(selected?.profile_id)void managePlayerAccount("get");else{setAccountInfo(null);setAccountEmail("");setAccountMessage("");setAccountError("");}},[selected?.id,selected?.profile_id]);
   const openNew = () => {
     setEditingId(null); setForm(emptyForm); setGuardianContacts(emptyGuardianContacts()); setCareerHistory([]);
     setFormError(""); setShowForm(true);
@@ -314,6 +335,17 @@ export function PlayerRoster({ canManage }: { canManage: boolean }) {
           <div><strong>Mãe</strong><span>{[detailGuardianContacts.mother_name,detailGuardianContacts.mother_phone].filter(Boolean).join(" · ") || "—"}</span></div>
           <div><strong>Email do EE</strong><span>{detailGuardianContacts.guardian_email || "—"}</span></div>
         </div>
+        {canManage && <div className="roster-detail-related roster-account-management"><h3>Conta de acesso da atleta</h3>
+          {!selected.profile_id ? <><p>Esta atleta ainda não tem conta de acesso.</p><label><span>Email para convite</span><input type="email" value={accountEmail} onChange={e=>setAccountEmail(e.target.value)} placeholder="atleta@exemplo.pt"/></label><button className="primary-button" disabled={accountBusy||!accountEmail.trim()} onClick={()=>void managePlayerAccount("invite")}>{accountBusy?"A enviar…":"Criar conta e enviar convite"}</button></>
+          : <><div><strong>Email de acesso</strong><span>{accountInfo?.email||"A carregar…"}</span></div><div><strong>Estado da conta</strong><span>{accountInfo?.status==="ativo"?"Ativa":accountInfo?.status==="suspenso"?"Suspensa":accountInfo?.status==="convite_pendente"?"Convite pendente":accountInfo?.status||"A carregar…"}</span></div>
+          <label><span>Alterar email de acesso</span><input type="email" value={accountEmail} onChange={e=>setAccountEmail(e.target.value)}/></label>
+          <div className="modal-actions"><button className="secondary-button" disabled={accountBusy||!accountEmail.trim()} onClick={()=>void managePlayerAccount("update_email")}>Atualizar email</button>
+          {accountInfo?.status==="ativo"&&<button className="secondary-button" disabled={accountBusy} onClick={()=>void managePlayerAccount("set_status","suspenso")}>Suspender conta</button>}
+          {accountInfo?.status==="suspenso"&&<button className="secondary-button" disabled={accountBusy} onClick={()=>void managePlayerAccount("set_status","ativo")}>Reativar conta</button>}
+          <button className="danger-button" disabled={accountBusy} onClick={()=>{if(window.confirm("Eliminar apenas a conta de acesso? A ficha e o histórico serão preservados."))void managePlayerAccount("delete");}}>Eliminar conta</button></div></>}
+          {accountMessage&&<p role="status">{accountMessage}</p>}{accountError&&<p className="form-error" role="alert">{accountError}</p>}
+          <small>A gestão da conta não altera o estado desportivo da atleta nem elimina a ficha ou o histórico.</small>
+        </div>}
         <div className="roster-detail-related"><h3>Histórico de carreira</h3>{detailCareer.length ? detailCareer.map(h=><div key={h.id}><strong>{h.club_name}</strong><span>{[h.team_name,h.season_label,[h.start_date,h.end_date].filter(Boolean).join(" – ")].filter(Boolean).join(" · ")}</span><span>Jogos: {h.games_played || "—"} · Golos: {h.goals || "—"} · Assistências: {h.assists || "—"}{selected.positions.includes("GR") ? ` · Golos sofridos: ${h.goals_conceded || "—"}` : ""}</span></div>) : <p>Sem histórico de carreira registado.</p>}</div>
         <div className="modal-actions">{canManage && <button className="danger-button" onClick={() => void archive(selected)}>Arquivar ficha</button>}<button className="secondary-button" onClick={() => setSelected(null)}>Fechar</button></div>
       </section>
