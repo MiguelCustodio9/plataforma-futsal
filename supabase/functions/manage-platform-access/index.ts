@@ -60,13 +60,27 @@ Deno.serve(async (request) => {
       return respond(400, { error: "Indica um nome e um endereço de email válido." });
     }
 
+    // Uma ficha Staff é preservada quando a conta de acesso é eliminada.
+    // Antes de criar uma nova ficha, reutilizamos a ficha histórica do mesmo email.
+    const { data: existingStaff, error: existingStaffError } = await admin.from("staff_members")
+      .select("id, profile_id, account_deleted_at")
+      .eq("email", email)
+      .maybeSingle();
+    if (existingStaffError) {
+      console.error("Erro ao verificar ficha Staff existente:", existingStaffError.message);
+      return respond(500, { error: "Não foi possível verificar se já existe uma ficha Staff para este email." });
+    }
+    if (existingStaff?.profile_id) {
+      return respond(409, { error: "Este email já está associado a uma ficha Staff com conta. Consulta a Gestão de acessos antes de criar outra." });
+    }
+
     const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { display_name: displayName, invite_kind: "staff" },
       redirectTo: Deno.env.get("APP_REDIRECT_URL") ?? "https://miguelcustodio9.github.io/plataforma-futsal/",
     });
     if (inviteError || !invitation.user) {
       console.error("Erro ao convidar Treinador Principal:", inviteError?.message);
-      return respond(409, { error: inviteError?.message ?? "Não foi possível enviar o convite. Confirma se o email já está associado a uma conta." });
+      return respond(409, { error: inviteError?.message ?? "Não foi possível enviar o convite. Confirma se o email já está associado a outra conta." });
     }
 
     const invitedUserId = invitation.user.id;
@@ -83,33 +97,65 @@ Deno.serve(async (request) => {
     }
 
     const sentAt = new Date();
-    const { data: staffMember, error: staffError } = await admin.from("staff_members").insert({
+    const staffPayload = {
       profile_id: invitedUserId,
       name: displayName,
       full_name: displayName,
       email,
-      status: "convite_enviado",
+      status: "convite_enviado" as const,
       invite_sent_at: sentAt.toISOString(),
       invite_expires_at: new Date(sentAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      created_by: authData.user.id,
-    }).select("id").single();
-    if (staffError || !staffMember) {
-      await admin.from("profiles").delete().eq("id", invitedUserId);
-      await admin.auth.admin.deleteUser(invitedUserId);
-      console.error("Erro ao criar ficha Staff do Treinador Principal:", staffError?.message);
-      return respond(500, { error: "Não foi possível criar a ficha Staff. O convite foi invalidado." });
+      account_deleted_at: null,
+    };
+
+    let staffMemberId: string | null = null;
+    let staffErrorMessage: string | null = null;
+    if (existingStaff) {
+      const { data: reusedStaff, error: reuseError } = await admin.from("staff_members")
+        .update(staffPayload)
+        .eq("id", existingStaff.id)
+        .is("profile_id", null)
+        .select("id")
+        .maybeSingle();
+      staffMemberId = reusedStaff?.id ?? null;
+      staffErrorMessage = reuseError?.message ?? (staffMemberId ? null : "A ficha Staff deixou de estar disponível para reutilização.");
+    } else {
+      const { data: newStaff, error: insertError } = await admin.from("staff_members")
+        .insert({ ...staffPayload, created_by: authData.user.id })
+        .select("id")
+        .single();
+      staffMemberId = newStaff?.id ?? null;
+      staffErrorMessage = insertError?.message ?? (staffMemberId ? null : "A base de dados não devolveu a ficha Staff criada.");
     }
 
-    const { error: roleError } = await admin.from("staff_member_roles").insert({
-      staff_member_id: staffMember.id,
-      role_name: "Treinador Principal",
-    });
-    if (roleError) {
-      await admin.from("staff_members").delete().eq("id", staffMember.id);
+    const rollbackInvite = async (keepStaffRecord: boolean) => {
+      if (staffMemberId && existingStaff && keepStaffRecord) {
+        await admin.from("staff_members").update({
+          profile_id: null,
+          status: "convite_expirado",
+          account_deleted_at: existingStaff.account_deleted_at,
+        }).eq("id", staffMemberId);
+      } else if (staffMemberId && !existingStaff) {
+        await admin.from("staff_members").delete().eq("id", staffMemberId);
+      }
       await admin.from("profiles").delete().eq("id", invitedUserId);
       await admin.auth.admin.deleteUser(invitedUserId);
+    };
+
+    if (staffErrorMessage || !staffMemberId) {
+      await rollbackInvite(false);
+      console.error("Erro ao criar/reutilizar ficha Staff do Treinador Principal:", staffErrorMessage);
+      return respond(500, { error: "Não foi possível associar o convite à ficha Staff. O convite foi invalidado; a ficha anterior foi preservada." });
+    }
+
+    const { error: roleError } = await admin.from("staff_member_roles").upsert({
+      staff_member_id: staffMemberId,
+      role_name: "Treinador Principal",
+    }, { onConflict: "staff_member_id,role_name", ignoreDuplicates: true });
+    if (roleError) {
+      await rollbackInvite(true);
       console.error("Erro ao atribuir função de Treinador Principal:", roleError.message);
-      return respond(500, { error: "Não foi possível atribuir a função. O convite foi invalidado." });
+      return respond(500, { error: "Não foi possível atribuir a função. O convite foi invalidado e a ficha foi preservada." });
     }
 
     const { error: auditError } = await admin.from("platform_access_audit").insert({
@@ -120,11 +166,9 @@ Deno.serve(async (request) => {
       new_status: "convite_pendente",
     });
     if (auditError) {
-      await admin.from("staff_members").delete().eq("id", staffMember.id);
-      await admin.from("profiles").delete().eq("id", invitedUserId);
-      await admin.auth.admin.deleteUser(invitedUserId);
+      await rollbackInvite(true);
       console.error("Erro ao auditar criação do convite; conta revertida:", auditError.message);
-      return respond(500, { error: "Não foi possível concluir o registo de auditoria. O convite foi invalidado." });
+      return respond(500, { error: "Não foi possível concluir o registo de auditoria. O convite foi invalidado e a ficha foi preservada." });
     }
     return respond(200, { message: "Convite de Treinador Principal enviado com sucesso." });
   }
