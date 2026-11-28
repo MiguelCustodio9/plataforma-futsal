@@ -51,7 +51,7 @@ alter table public.players drop constraint if exists players_positions_valid;
 alter table public.players add constraint players_positions_valid check (
   positions <@ array['GR','Fixo','Ala','Pivot','Universal']::text[]
   and cardinality(positions) between 1 and 2
-  and cardinality(positions) = cardinality(array(select distinct unnest(positions)))
+  and (cardinality(positions) < 2 or positions[1] <> positions[2])
   and (not ('Universal' = any(positions)) or cardinality(positions) = 1)
 );
 
