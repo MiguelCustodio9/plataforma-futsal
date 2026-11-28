@@ -213,6 +213,7 @@ describe("plataforma de futsal", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("O que acontece a seguir?")).toBeInTheDocument();
     expect(within(dialog).getByText(/definir a sua palavra-passe/i)).toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByLabelText("Ficha Staff")).toBeEnabled());
     fireEvent.change(within(dialog).getByLabelText("Nome apresentado *"), { target: { value: "Nova Treinadora Principal" } });
     fireEvent.change(within(dialog).getByRole("textbox", { name: /Email de acesso/ }), { target: { value: "nova.treinadora@exemplo.pt" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Criar conta e enviar convite" }));
@@ -236,6 +237,7 @@ describe("plataforma de futsal", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Criar Treinador Principal/ }));
     const dialog = screen.getByRole("dialog");
     const staffSelect = await within(dialog).findByLabelText("Ficha Staff");
+    await waitFor(() => expect(staffSelect).toBeEnabled());
     fireEvent.change(staffSelect, { target: { value: "staff-record-42" } });
     expect(within(dialog).getByLabelText("Nome apresentado *")).toHaveValue("Ana Silva");
     expect(within(dialog).getByRole("textbox", { name: /Email de acesso/ })).toHaveValue("ana@exemplo.pt");
