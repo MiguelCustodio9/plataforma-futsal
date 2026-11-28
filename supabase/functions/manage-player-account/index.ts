@@ -43,6 +43,13 @@ Deno.serve(async (request) => {
     if(ae){await admin.from("players").update({profile_id:null}).eq("id",player.id);await admin.from("profiles").delete().eq("id",uid);await admin.auth.admin.deleteUser(uid);return respond(500,{error:"Falhou o registo de auditoria. O convite foi revertido."});}
     return respond(200,{message:"Convite enviado. A atleta receberá um email para ativar a conta e definir a palavra-passe."});
   }
+  if(p.action==="get"){
+    if(!player.profile_id)return respond(200,{email:"",status:""});
+    const {data:profile,error:profileError}=await admin.from("profiles").select("role,status").eq("id",player.profile_id).maybeSingle();
+    const {data:user,error:userError}=await admin.auth.admin.getUserById(player.profile_id);
+    if(profileError||userError||!profile||!user.user||profile.role!=="jogadora")return respond(409,{error:"Não foi possível consultar a conta associada."});
+    return respond(200,{email:user.user.email??"",status:profile.status});
+  }
   if(!player.profile_id)return respond(409,{error:"Esta atleta não tem uma conta associada."});
   const uid=player.profile_id;
   const {data:target,error:targetError}=await admin.from("profiles").select("id,role,status").eq("id",uid).maybeSingle();
